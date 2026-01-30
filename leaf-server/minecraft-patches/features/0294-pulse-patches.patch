@@ -1,0 +1,269 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Piecuuu <56731916+Piecuuu@users.noreply.github.com>
+Date: Fri, 30 Jan 2026 18:50:15 +0100
+Subject: [PATCH] pulse patches
+
+
+diff --git a/net/minecraft/commands/Commands.java b/net/minecraft/commands/Commands.java
+index d9283f8d24bf7c28f9b123e9e58dc535003a13c3..96e85ef50b277b03b62492069f8aa5eafcd6cda0 100644
+--- a/net/minecraft/commands/Commands.java
++++ b/net/minecraft/commands/Commands.java
+@@ -153,6 +153,7 @@ import net.minecraft.world.phys.Vec2;
+ import net.minecraft.world.phys.Vec3;
+ import org.jspecify.annotations.Nullable;
+ import org.slf4j.Logger;
++import dev.pulsemc.command.PulseCommands;
+ 
+ public class Commands {
+     public interface RestrictedMarker { } // Paper - restricted api
+@@ -312,6 +313,10 @@ public class Commands {
+             PublishCommand.register(this.dispatcher);
+         }
+ 
++        // Pulse start - Register new vanilla command
++        PulseCommands.register(this.dispatcher);
++        // Pulse end - Register new vanilla command
++
+         // Paper start - Vanilla command permission fixes
+         for (final CommandNode<CommandSourceStack> node : this.dispatcher.getRoot().getChildren()) {
+             if (node.getRequirement() == com.mojang.brigadier.builder.ArgumentBuilder.<CommandSourceStack>defaultRequirement()) {
+diff --git a/net/minecraft/network/protocol/game/ClientboundSectionBlocksUpdatePacket.java b/net/minecraft/network/protocol/game/ClientboundSectionBlocksUpdatePacket.java
+index cb0dd1aa58b8b5972cd8410e1e22fda64f329105..1f5ad834e21020a873ee17145574ac5a7a93c5aa 100644
+--- a/net/minecraft/network/protocol/game/ClientboundSectionBlocksUpdatePacket.java
++++ b/net/minecraft/network/protocol/game/ClientboundSectionBlocksUpdatePacket.java
+@@ -17,9 +17,11 @@ public class ClientboundSectionBlocksUpdatePacket implements Packet<ClientGamePa
+         ClientboundSectionBlocksUpdatePacket::write, ClientboundSectionBlocksUpdatePacket::new
+     );
+     private static final int POS_IN_SECTION_BITS = 12;
+-    private final SectionPos sectionPos;
+-    private final short[] positions;
+-    private final BlockState[] states;
++    // piecuu - pulse start - make it public
++    public final SectionPos sectionPos;
++    public final short[] positions;
++    public final BlockState[] states;
++    // piecuu - pulse end
+ 
+     public ClientboundSectionBlocksUpdatePacket(SectionPos sectionPos, ShortSet positions, LevelChunkSection section) {
+         this.sectionPos = sectionPos;
+diff --git a/net/minecraft/server/dedicated/DedicatedServer.java b/net/minecraft/server/dedicated/DedicatedServer.java
+index 0e77c717d3481aae5d591a08eed1eb5f1439cdbf..ac2dfed62cb74a64b3060cc9c68b1b6657423733 100644
+--- a/net/minecraft/server/dedicated/DedicatedServer.java
++++ b/net/minecraft/server/dedicated/DedicatedServer.java
+@@ -76,6 +76,7 @@ import net.minecraft.world.level.storage.LevelStorageSource;
+ import org.jspecify.annotations.Nullable;
+ import org.slf4j.Logger;
+ 
++// piecuu - PULSE_MODIFIED
+ public class DedicatedServer extends MinecraftServer implements ServerInterface {
+     static final Logger LOGGER = LogUtils.getLogger();
+     private static final int CONVERSION_RETRY_DELAY_MS = 5000;
+@@ -377,6 +378,12 @@ public class DedicatedServer extends MinecraftServer implements ServerInterface
+         }
+         // Purpur end - UPnP Port Forwarding
+ 
++        // piecuu - Pulse start - Init Config and stuff
++        dev.pulsemc.config.ConfigManager.load();
++        dev.pulsemc.network.PulseMetrics.start();
++        dev.pulsemc.network.PulseBar.start();
++        // piecuu - Pulse end
++
+         // CraftBukkit start
+         this.server.loadPlugins();
+         this.server.enablePlugins(org.bukkit.plugin.PluginLoadOrder.STARTUP);
+diff --git a/net/minecraft/server/network/ServerCommonPacketListenerImpl.java b/net/minecraft/server/network/ServerCommonPacketListenerImpl.java
+index 0e1411d820caef8a6a80bca07d9c76e9615ff13e..a7d3add505c81a8c63a1721e8fad2f48a2d93624 100644
+--- a/net/minecraft/server/network/ServerCommonPacketListenerImpl.java
++++ b/net/minecraft/server/network/ServerCommonPacketListenerImpl.java
+@@ -29,6 +29,8 @@ import net.minecraft.util.VisibleForDebug;
+ import net.minecraft.util.profiling.Profiler;
+ import org.jspecify.annotations.Nullable;
+ import org.slf4j.Logger;
++import dev.pulsemc.network.PulseBuffer;
++import io.papermc.paper.util.KeepAlive;
+ 
+ public abstract class ServerCommonPacketListenerImpl implements ServerCommonPacketListener {
+     private static final Logger LOGGER = LogUtils.getLogger();
+@@ -39,14 +41,13 @@ public abstract class ServerCommonPacketListenerImpl implements ServerCommonPack
+     protected final MinecraftServer server;
+     public final Connection connection; // Paper
+     private final boolean transferred;
+-    //private long keepAliveTime; // Paper - improve keepalives
++    private long keepAliveTime; // Paper - improve keepalives // piecuu - pulse
+     private boolean keepAlivePending; // Paper - improve keepalives // Purpur - Alternative Keepalive Handling
+-    //private long keepAliveChallenge; // Paper - improve keepalives
++    private long keepAliveChallenge; // Paper - improve keepalives // piecuu - pulse
+     private long closedListenerTime;
+     private boolean closed = false;
+     private it.unimi.dsi.fastutil.longs.LongList keepAlives = new it.unimi.dsi.fastutil.longs.LongArrayList(); // Gale - Purpur - send multiple keep-alive packets
+-    private volatile int latency; // Paper - improve keepalives - make volatile
+-    private final io.papermc.paper.util.KeepAlive keepAlive; // Paper - improve keepalives
++    private int latency; // Paper - improve keepalives - make volatile // piecuu - pulse
+     private volatile boolean suspendFlushingOnServerThread = false;
+     // CraftBukkit start
+     public final org.bukkit.craftbukkit.CraftServer cserver;
+@@ -67,18 +68,26 @@ public abstract class ServerCommonPacketListenerImpl implements ServerCommonPack
+     public final java.util.Set<String> pluginMessagerChannels;
+     // Paper end - retain certain values
+ 
++    // piecuu - pulse start
++    public PulseBuffer pulseBuffer;
++    private final KeepAlive keepAlive;
++    // piecuu - pulse end
++
+     public ServerCommonPacketListenerImpl(MinecraftServer server, Connection connection, CommonListenerCookie cookie) {
+         this.server = server;
+         this.connection = connection;
+-        //this.keepAliveTime = Util.getMillis(); // Paper - improve keepalives
++        this.keepAliveTime = Util.getMillis(); // piecuu - pulse
+         this.latency = cookie.latency();
+         this.transferred = cookie.transferred();
+         // Paper start
+         this.playerBrand = cookie.brandName();
+         this.cserver = server.server;
+         this.pluginMessagerChannels = cookie.channels();
+-        this.keepAlive = cookie.keepAlive();
+         // Paper end
++        // piecuu - pulse start
++        this.pulseBuffer = new PulseBuffer(this);
++        this.keepAlive = cookie.keepAlive();
++        // piecuu - pulse end
+     }
+ 
+     // Paper start - configuration phase API
+@@ -125,17 +134,17 @@ public abstract class ServerCommonPacketListenerImpl implements ServerCommonPack
+             return;
+         } else {
+             // Gale end - Purpur - send multiple keep-alive packets
+-        if (pending != null && pending.challengeId() == packet.getId()) {
+-            this.keepAlive.pendingKeepAlives.remove(pending);
++            if (pending != null && pending.challengeId() == packet.getId()) {
++                this.keepAlive.pendingKeepAlives.remove(pending);
+ 
+-            io.papermc.paper.util.KeepAlive.KeepAliveResponse response = new io.papermc.paper.util.KeepAlive.KeepAliveResponse(pending.txTimeNS(), now);
++                io.papermc.paper.util.KeepAlive.KeepAliveResponse response = new io.papermc.paper.util.KeepAlive.KeepAliveResponse(pending.txTimeNS(), now);
+ 
+-            this.keepAlive.pingCalculator1m.update(response);
+-            this.keepAlive.pingCalculator5s.update(response);
++                this.keepAlive.pingCalculator1m.update(response);
++                this.keepAlive.pingCalculator5s.update(response);
+ 
+-            this.latency = this.keepAlive.pingCalculator5s.getAvgLatencyMS();
+-            return;
+-        }
++                this.latency = this.keepAlive.pingCalculator5s.getAvgLatencyMS();
++                return;
++            }
+         } // Gale - Purpur - send multiple keep-alive packets
+ 
+         for (java.util.Iterator<io.papermc.paper.util.KeepAlive.PendingKeepAlive> itr = this.keepAlive.pendingKeepAlives.iterator(); itr.hasNext();) {
+@@ -315,24 +324,24 @@ public abstract class ServerCommonPacketListenerImpl implements ServerCommonPack
+             }
+         } else {
+             // Gale end - Purpur - send multiple keep-alive packets
+-        if (this.checkIfClosed(millis) && !this.processedDisconnect) {
+-            long currTime = System.nanoTime();
++            if (this.checkIfClosed(millis) && !this.processedDisconnect) {
++                long currTime = System.nanoTime();
+ 
+-            if ((currTime - this.keepAlive.lastKeepAliveTx) >= java.util.concurrent.TimeUnit.SECONDS.toNanos(1L)) {
+-                this.keepAlive.lastKeepAliveTx = currTime;
++                if ((currTime - this.keepAlive.lastKeepAliveTx) >= java.util.concurrent.TimeUnit.SECONDS.toNanos(1L)) {
++                    this.keepAlive.lastKeepAliveTx = currTime;
+ 
+-                io.papermc.paper.util.KeepAlive.PendingKeepAlive pka = new io.papermc.paper.util.KeepAlive.PendingKeepAlive(currTime, millis);
+-                this.keepAlive.pendingKeepAlives.add(pka);
+-                this.send(new ClientboundKeepAlivePacket(pka.challengeId()));
+-            }
++                    io.papermc.paper.util.KeepAlive.PendingKeepAlive pka = new io.papermc.paper.util.KeepAlive.PendingKeepAlive(currTime, millis);
++                    this.keepAlive.pendingKeepAlives.add(pka);
++                    this.send(new ClientboundKeepAlivePacket(pka.challengeId()));
++                }
+ 
+-            io.papermc.paper.util.KeepAlive.PendingKeepAlive oldest = this.keepAlive.pendingKeepAlives.peek();
+-            if (oldest != null && (currTime - oldest.txTimeNS()) > java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(KEEPALIVE_LIMIT)) {
+-                LOGGER.info("{} was kicked due to keepalive timeout!", this.playerProfile().name());
+-                this.disconnect(TIMEOUT_DISCONNECTION_MESSAGE, io.papermc.paper.connection.DisconnectionReason.TIMEOUT); // Paper - kick event cause
+-                // Paper end - improve keepalives
++                io.papermc.paper.util.KeepAlive.PendingKeepAlive oldest = this.keepAlive.pendingKeepAlives.peek();
++                if (oldest != null && (currTime - oldest.txTimeNS()) > java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(KEEPALIVE_LIMIT)) {
++                    LOGGER.info("{} was kicked due to keepalive timeout!", this.playerProfile().name());
++                    this.disconnect(TIMEOUT_DISCONNECTION_MESSAGE, io.papermc.paper.connection.DisconnectionReason.TIMEOUT); // Paper - kick event cause
++                    // Paper end - improve keepalives
++                }
+             }
+-        }
+         } // Gale - Purpur - send multiple keep-alive packets
+ 
+         Profiler.get().pop();
+@@ -385,26 +394,33 @@ public abstract class ServerCommonPacketListenerImpl implements ServerCommonPack
+         }
+         // Leaf end - Mirai - Configurable chat message signatures
+         // CraftBukkit start
+-        if (packet == null || this.processedDisconnect) { // Spigot
++        if (packet == null || this.processedDisconnect) return;
++
++        // piecuu - Pulse start - Smart Batching V3 (Delegation)
++        if (this.pulseBuffer != null) {
++            // We just send packet to buffer
++            this.pulseBuffer.add(packet, sendListener);
++
++            // If packet close connection send it as "Instant"
++            if (packet.isTerminal()) {
++                this.pulseBuffer.flush(dev.pulsemc.api.enums.FlushReason.INSTANT);
++                this.close();
++            }
+             return;
+-        } else if (packet instanceof net.minecraft.network.protocol.game.ClientboundSetDefaultSpawnPositionPacket defaultSpawnPositionPacket && this instanceof ServerGamePacketListenerImpl serverGamePacketListener) {
+-            serverGamePacketListener.player.compassTarget = org.bukkit.craftbukkit.util.CraftLocation.toBukkit(defaultSpawnPositionPacket.respawnData().pos(), serverGamePacketListener.getPlayer().level());
+-        }
+-        // CraftBukkit end
+-        if (packet.isTerminal()) {
+-            this.close();
+         }
+ 
+-        boolean flag = !this.suspendFlushingOnServerThread || !this.server.isSameThread();
++            // Fallback if buffer doesnt created
++        if (packet instanceof net.minecraft.network.protocol.game.ClientboundSetDefaultSpawnPositionPacket p && this instanceof ServerGamePacketListenerImpl s) {
++            s.player.compassTarget = org.bukkit.craftbukkit.util.CraftLocation.toBukkit(p.respawnData().pos(), s.getPlayer().level());
++        }
++        if (packet.isTerminal()) this.close();
+ 
+         try {
+-            this.connection.send(packet, sendListener, flag);
++            this.connection.send(packet, sendListener, true);
+         } catch (Throwable var7) {
+-            CrashReport crashReport = CrashReport.forThrowable(var7, "Sending packet");
+-            CrashReportCategory crashReportCategory = crashReport.addCategory("Packet being sent");
+-            crashReportCategory.setDetail("Packet class", () -> packet.getClass().getCanonicalName());
+-            throw new ReportedException(crashReport);
++            throw new net.minecraft.ReportedException(net.minecraft.CrashReport.forThrowable(var7, "Sending packet"));
+         }
++        // piecuu - Pulse end
+     }
+ 
+     @Deprecated @io.papermc.paper.annotation.DoNotUse // Paper - kick event causes
+@@ -532,6 +548,6 @@ public abstract class ServerCommonPacketListenerImpl implements ServerCommonPack
+     }
+ 
+     protected CommonListenerCookie createCookie(ClientInformation clientInformation) {
+-        return new CommonListenerCookie(this.playerProfile(), this.latency, clientInformation, this.transferred, this.playerBrand, this.pluginMessagerChannels, this.keepAlive); // Paper
++        return new CommonListenerCookie(this.playerProfile(), this.latency, clientInformation, this.transferred, this.playerBrand, this.pluginMessagerChannels, this.keepAlive); // Paper // Pulse - add keepAlive
+     }
+ }
+diff --git a/net/minecraft/server/network/ServerGamePacketListenerImpl.java b/net/minecraft/server/network/ServerGamePacketListenerImpl.java
+index 706ec1af961f4c746af345fb3b45fe70947b043f..6bf90823cfe82676c6be09ccea28eabb559643ea 100644
+--- a/net/minecraft/server/network/ServerGamePacketListenerImpl.java
++++ b/net/minecraft/server/network/ServerGamePacketListenerImpl.java
+@@ -381,6 +381,11 @@ public class ServerGamePacketListenerImpl
+                 this.disconnect(Component.translatable("multiplayer.disconnect.idling"), org.bukkit.event.player.PlayerKickEvent.Cause.IDLING); // Paper - kick event cause
+             }
+         }
++        // Pulse start
++        if (this.pulseBuffer != null) {
++            this.pulseBuffer.flush(dev.pulsemc.api.enums.FlushReason.INSTANT);
++        }
++        // Pulse end
+     }
+ 
+     private boolean tickPlayer() {
