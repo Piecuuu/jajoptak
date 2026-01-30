@@ -83,11 +83,12 @@ public class Globals {
         StringBuilder sb = new StringBuilder();
 
         for (long longV : seed) {
-            // Convert to 64-bit binary string per long
-            // Use format to keep 64-bit length, and use 0 to complete space
-            String binaryStr = String.format("%64s", Long.toBinaryString(longV)).replace(' ', '0');
+            // piecuu start - convert to hex instead of binary
+            // Convert to 64 bit hex-encoded string (16 chars) per long
+            String hexStr = String.format("%016X", longV);
 
-            sb.append(binaryStr);
+            sb.append(hexStr);
+            // piecuu end
         }
 
         return sb.toString();
