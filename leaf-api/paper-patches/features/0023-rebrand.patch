@@ -1,0 +1,18 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Piecuuu <56731916+Piecuuu@users.noreply.github.com>
+Date: Fri, 30 Jan 2026 18:38:20 +0100
+Subject: [PATCH] rebrand
+
+
+diff --git a/src/main/java/io/papermc/paper/ServerBuildInfo.java b/src/main/java/io/papermc/paper/ServerBuildInfo.java
+index c198304386e83edc2ec582fdf66d97d624004771..2c534074001323d69b132b48b3cf5b0b97f8fe22 100644
+--- a/src/main/java/io/papermc/paper/ServerBuildInfo.java
++++ b/src/main/java/io/papermc/paper/ServerBuildInfo.java
+@@ -40,6 +40,7 @@ public interface ServerBuildInfo {
+      */
+     Key BRAND_LEAF_ID = Key.key("winds-studio", "leaf");
+     // Leaf end - Rebrand
++    Key BRAND_PIECUU_ID = Key.key("piecuu", "jajoptak"); // piecuu - rebrand
+ 
+     /**
+      * Gets the {@code ServerBuildInfo}.
