@@ -1,0 +1,31 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Piecuuu <56731916+Piecuuu@users.noreply.github.com>
+Date: Sun, 8 Feb 2026 00:41:51 +0100
+Subject: [PATCH] per-player locator bar
+
+
+diff --git a/src/main/java/org/bukkit/entity/Player.java b/src/main/java/org/bukkit/entity/Player.java
+index 45678845eb6d0beafe2fe3326dddf68d66b17594..cf1b04d898bcaa5f3c48268c3f2709504923a854 100644
+--- a/src/main/java/org/bukkit/entity/Player.java
++++ b/src/main/java/org/bukkit/entity/Player.java
+@@ -4179,4 +4179,20 @@ public interface Player extends HumanEntity, Conversable, OfflinePlayer, PluginM
+     @Deprecated(forRemoval = true)
+     CompletableFuture<ItemStack> getSkullAsynchronously();
+     // Leaf end - KeYi - Player Skull API
++
++    // piecuu start - per-player locator bar
++    /**
++     * Get the state of the per-player locator bar.
++     * This will not work for if the server has the locator bar gamerule enabled.
++     * @return The state of the per-player locator bar
++     */
++    boolean getForceLocatorBar();
++
++    /**
++     * Sets the state of the per-player locator bar.
++     * This will not enable the locator bar globally. Change the gamerule for this.
++     * @param enabled
++     */
++    void setForceLocatorBar(boolean enabled);
++    // piecuu end - per-player locator bar
+ }

@@ -1,0 +1,1593 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Piecuuu <56731916+Piecuuu@users.noreply.github.com>
+Date: Fri, 30 Jan 2026 18:31:21 +0100
+Subject: [PATCH] add pulse stuff
+
+
+diff --git a/src/main/java/dev/pulsemc/api/enums/FlushReason.java b/src/main/java/dev/pulsemc/api/enums/FlushReason.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..786c28c99efb5e591e6054c5ec1ad6d2e82653df
+--- /dev/null
++++ b/src/main/java/dev/pulsemc/api/enums/FlushReason.java
+@@ -0,0 +1,36 @@
++package dev.pulsemc.api.enums;
++
++/**
++ * Represents the reason why the packet buffer was flushed to the network.
++ */
++public enum FlushReason {
++    /**
++     * The buffer exceeded the maximum byte size.
++     */
++    LIMIT_BYTES,
++
++    /**
++     * The buffer exceeded the maximum packet count.
++     */
++    LIMIT_COUNT,
++
++    /**
++     * Flushed at the end of the server tick.
++     */
++    TICK,
++
++    /**
++     * Flushed because a critical packet (e.g., KeepAlive) or a packet with a listener was sent.
++     */
++    INSTANT,
++
++    /**
++     * Flushed by the interval scheduler (Interval Mode).
++     */
++    INTERVAL,
++
++    /**
++     * Flushed manually via the API or command.
++     */
++    MANUAL
++}
+diff --git a/src/main/java/dev/pulsemc/api/events/PulseBufferFlushEvent.java b/src/main/java/dev/pulsemc/api/events/PulseBufferFlushEvent.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..6815c22fe4f545c9197cf29208204022e77692c8
+--- /dev/null
++++ b/src/main/java/dev/pulsemc/api/events/PulseBufferFlushEvent.java
+@@ -0,0 +1,70 @@
++package dev.pulsemc.api.events;
++
++import dev.pulsemc.api.enums.FlushReason;
++import org.bukkit.entity.Player;
++import org.bukkit.event.Event;
++import org.bukkit.event.HandlerList;
++import org.jetbrains.annotations.NotNull;
++
++/**
++ * Triggered when the PulseBuffer flushes accumulated packets to the network.
++ * <p>
++ * This event is not cancellable as the flush process has already started at the network layer.
++ */
++public class PulseBufferFlushEvent extends Event {
++    private static final HandlerList handlers = new HandlerList();
++
++    private final Player player;
++    private final FlushReason reason;
++    private final int packetCount;
++    private final long totalBytes;
++
++    public PulseBufferFlushEvent(Player player, FlushReason reason, int packetCount, long totalBytes) {
++        super(!org.bukkit.Bukkit.isPrimaryThread());
++        this.player = player;
++        this.reason = reason;
++        this.packetCount = packetCount;
++        this.totalBytes = totalBytes;
++    }
++
++    /**
++     * Gets the player whose buffer was flushed.
++     * @return the player
++     */
++    public @NotNull Player getPlayer() {
++        return player;
++    }
++
++    /**
++     * Gets the reason for the flush.
++     * @return flush reason
++     */
++    public @NotNull FlushReason getReason() {
++        return reason;
++    }
++
++    /**
++     * Gets the number of packets in this batch.
++     * @return packet count
++     */
++    public int getPacketCount() {
++        return packetCount;
++    }
++
++    /**
++     * Gets the size of the batch in bytes.
++     * @return size in bytes
++     */
++    public long getTotalBytes() {
++        return totalBytes;
++    }
++
++    @Override
++    public @NotNull HandlerList getHandlers() {
++        return handlers;
++    }
++
++    public static HandlerList getHandlerList() {
++        return handlers;
++    }
++}
+diff --git a/src/main/java/dev/pulsemc/api/events/PulseChunkOptimizationEvent.java b/src/main/java/dev/pulsemc/api/events/PulseChunkOptimizationEvent.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..45690759d06ab7ed9e9b23227a41699b4e784540
+--- /dev/null
++++ b/src/main/java/dev/pulsemc/api/events/PulseChunkOptimizationEvent.java
+@@ -0,0 +1,73 @@
++package dev.pulsemc.api.events;
++
++import org.bukkit.Chunk;
++import org.bukkit.entity.Player;
++import org.bukkit.event.Cancellable;
++import org.bukkit.event.Event;
++import org.bukkit.event.HandlerList;
++import org.jetbrains.annotations.NotNull;
++
++/**
++ * Triggered when Pulse detects massive block updates in a single chunk
++ * and attempts to replace them with a single ChunkData packet.
++ * <p>
++ * If cancelled, the server will send the original individual block update packets.
++ */
++public class PulseChunkOptimizationEvent extends Event implements Cancellable {
++    private static final HandlerList handlers = new HandlerList();
++
++    private final Player player;
++    private final Chunk chunk;
++    private final int packetCount;
++    private boolean cancelled;
++
++    public PulseChunkOptimizationEvent(Player player, Chunk chunk, int packetCount) {
++        super(!org.bukkit.Bukkit.isPrimaryThread());
++        this.player = player;
++        this.chunk = chunk;
++        this.packetCount = packetCount;
++    }
++
++    /**
++     * Gets the player receiving the updates.
++     * @return the player
++     */
++    public @NotNull Player getPlayer() {
++        return player;
++    }
++
++    /**
++     * Gets the chunk where the updates are happening.
++     * @return the chunk
++     */
++    public @NotNull Chunk getChunk() {
++        return chunk;
++    }
++
++    /**
++     * Gets the number of individual block update packets that were queued.
++     * @return packet count
++     */
++    public int getPacketCount() {
++        return packetCount;
++    }
++
++    @Override
++    public boolean isCancelled() {
++        return cancelled;
++    }
++
++    @Override
++    public void setCancelled(boolean cancel) {
++        this.cancelled = cancel;
++    }
++
++    @Override
++    public @NotNull HandlerList getHandlers() {
++        return handlers;
++    }
++
++    public static HandlerList getHandlerList() {
++        return handlers;
++    }
++}
+diff --git a/src/main/java/dev/pulsemc/api/events/PulseMetricUpdateEvent.java b/src/main/java/dev/pulsemc/api/events/PulseMetricUpdateEvent.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..bed1dbd2da2c26b556190f65ddcaacf548e0d933
+--- /dev/null
++++ b/src/main/java/dev/pulsemc/api/events/PulseMetricUpdateEvent.java
+@@ -0,0 +1,40 @@
++package dev.pulsemc.api.events;
++
++import org.bukkit.event.Event;
++import org.bukkit.event.HandlerList;
++import org.jetbrains.annotations.NotNull;
++
++/**
++ * Triggered periodically (default: 1s) when PulseMetrics updates its statistics.
++ * Useful for plugins that want to display server performance data (e.g., TabList or Scoreboard).
++ */
++public class PulseMetricUpdateEvent extends Event {
++    private static final HandlerList handlers = new HandlerList();
++
++    private final double logicalPPS;
++    private final double physicalPPS;
++    private final double bandwidthKB;
++    private final double cpuSavings;
++
++    public PulseMetricUpdateEvent(double logicalPPS, double physicalPPS, double bandwidthKB, double cpuSavings) {
++        super(true); // Always async
++        this.logicalPPS = logicalPPS;
++        this.physicalPPS = physicalPPS;
++        this.bandwidthKB = bandwidthKB;
++        this.cpuSavings = cpuSavings;
++    }
++
++    public double getLogicalPPS() { return logicalPPS; }
++    public double getPhysicalPPS() { return physicalPPS; }
++    public double getBandwidthKB() { return bandwidthKB; }
++
++    /**
++     * Gets the estimated CPU load saved by Pulse.
++     * @return savings in percentage (e.g. 5.4)
++     */
++    public double getCpuSavings() { return cpuSavings; }
++
++    @Override
++    public @NotNull HandlerList getHandlers() { return handlers; }
++    public static HandlerList getHandlerList() { return handlers; }
++}
+diff --git a/src/main/java/dev/pulsemc/api/events/PulsePacketSendEvent.java b/src/main/java/dev/pulsemc/api/events/PulsePacketSendEvent.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..d92cc67617e4b2c0fbc48be0014ce9b70d7fa5e1
+--- /dev/null
++++ b/src/main/java/dev/pulsemc/api/events/PulsePacketSendEvent.java
+@@ -0,0 +1,112 @@
++package dev.pulsemc.api.events;
++
++import net.minecraft.network.protocol.Packet;
++import org.bukkit.entity.Player;
++import org.bukkit.event.Cancellable;
++import org.bukkit.event.Event;
++import org.bukkit.event.HandlerList;
++import org.jetbrains.annotations.NotNull;
++
++/**
++ * Triggered when a packet is about to be added to the Pulse buffer.
++ * <p>
++ * This event is called synchronously on the main thread before any optimization logic.
++ * You can use this event to modify the packet, cancel it, or force immediate sending.
++ */
++public class PulsePacketSendEvent extends Event implements Cancellable {
++    private static final HandlerList handlers = new HandlerList();
++
++    private final Player player;
++    private Packet<?> packet;
++    private boolean cancelled;
++    private boolean forceSendImmediately;
++
++    public PulsePacketSendEvent(Player player, Packet<?> packet) {
++        super();
++        this.player = player;
++        this.packet = packet;
++    }
++
++    /**
++     * Gets the player receiving this packet.
++     * @return the target player
++     */
++    public Player getPlayer() {
++        return player;
++    }
++
++    /**
++     * Gets the raw packet being sent.
++     * @return the packet
++     */
++    public Packet<?> getPacket() {
++        return packet;
++    }
++
++    /**
++     * Replaces the packet with a modified one.
++     * @param packet the new packet
++     */
++    public void setPacket(Packet<?> packet) {
++        this.packet = packet;
++    }
++
++    /**
++     * Whether this packet is allowed to be optimized (e.g. replaced by a full chunk update).
++     * Default is true. Set to false for fake blocks or packets that must remain individual.
++     */
++    private boolean canBeOptimized = true;
++
++    /**
++     * Sets whether this packet can be optimized by the engine.
++     * @param can true to allow optimization, false to force individual sending.
++     */
++    public void setCanBeOptimized(boolean can) {
++        this.canBeOptimized = can;
++    }
++
++    /**
++     * Checks if this packet is allowed to be optimized.
++     * @return true if optimization is allowed.
++     */
++    public boolean canBeOptimized() {
++        return canBeOptimized;
++    }
++
++    /**
++     * Sets whether this packet should bypass the buffer and be sent immediately.
++     * If true, Pulse will flush the current buffer and send this packet instantly.
++     * Use this for latency-sensitive packets.
++     * @param force true to send immediately
++     */
++    public void setForceSendImmediately(boolean force) {
++        this.forceSendImmediately = force;
++    }
++
++    /**
++     * Checks if immediate sending is requested.
++     * @return true if forced
++     */
++    public boolean isForceSendImmediately() {
++        return forceSendImmediately;
++    }
++
++    @Override
++    public boolean isCancelled() {
++        return cancelled;
++    }
++
++    @Override
++    public void setCancelled(boolean cancel) {
++        this.cancelled = cancel;
++    }
++
++    @Override
++    public @NotNull HandlerList getHandlers() {
++        return handlers;
++    }
++
++    public static HandlerList getHandlerList() {
++        return handlers;
++    }
++}
+diff --git a/src/main/java/dev/pulsemc/api/network/PulseNetwork.java b/src/main/java/dev/pulsemc/api/network/PulseNetwork.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..19dc3c1fb8fe0472205d4d483a6056ad807126e9
+--- /dev/null
++++ b/src/main/java/dev/pulsemc/api/network/PulseNetwork.java
+@@ -0,0 +1,62 @@
++package dev.pulsemc.api.network;
++
++import dev.pulsemc.network.PulseBuffer;
++import net.minecraft.server.network.ServerGamePacketListenerImpl;
++import org.bukkit.craftbukkit.entity.CraftPlayer;
++import org.bukkit.entity.Player;
++import org.jetbrains.annotations.Nullable;
++
++/**
++ * The main API entry point for interacting with the PulseMC network engine.
++ */
++public class PulseNetwork {
++
++    /**
++     * Gets the PulsePlayer instance.
++     */
++    public static PulsePlayer getPlayer(Player player) {
++        return PulsePlayer.of(player);
++    }
++
++    /**
++     * Flushes the packet buffer for a specific player immediately.
++     * Use this if your plugin sends latency-sensitive data.
++     *
++     * @param player the target player
++     */
++    public static void flushPlayer(Player player) {
++        PulseBuffer buffer = getBuffer(player);
++        if (buffer != null) {
++            buffer.flush();
++        }
++    }
++
++    /**
++     * Checks if Pulse optimizations are active for the player.
++     *
++     * @param player the target player
++     * @return true if active, false otherwise
++     */
++    public static boolean isPulseActive(Player player) {
++        return getBuffer(player) != null;
++    }
++
++    /**
++     * Gets the current pending bytes in the player's buffer.
++     *
++     * @param player the target player
++     * @return pending bytes or 0
++     */
++    public static long getPendingBytes(Player player) {
++        PulseBuffer buffer = getBuffer(player);
++        return buffer != null ? buffer.getPendingBytes() : 0;
++    }
++
++    @Nullable
++    private static PulseBuffer getBuffer(Player player) {
++        if (player instanceof CraftPlayer cp && cp.getHandle().connection instanceof ServerGamePacketListenerImpl listener) {
++            return listener.pulseBuffer;
++        }
++        return null;
++    }
++}
+diff --git a/src/main/java/dev/pulsemc/api/network/PulsePlayer.java b/src/main/java/dev/pulsemc/api/network/PulsePlayer.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..abfcc21fd3b219d2cced9d5b58f1f6e0d53cc137
+--- /dev/null
++++ b/src/main/java/dev/pulsemc/api/network/PulsePlayer.java
+@@ -0,0 +1,48 @@
++package dev.pulsemc.api.network;
++
++import dev.pulsemc.network.PulseBuffer;
++import dev.pulsemc.network.PulseVirtualView;
++import net.minecraft.server.network.ServerGamePacketListenerImpl;
++import org.bukkit.craftbukkit.entity.CraftPlayer;
++import org.bukkit.entity.Player;
++
++/**
++ * A wrapper class for players to interact with the Pulse network engine.
++ */
++public class PulsePlayer {
++    private final PulseBuffer buffer;
++
++    private PulsePlayer(PulseBuffer buffer) {
++        this.buffer = buffer;
++    }
++
++    /**
++     * Internal method to get the buffer.
++     */
++    public PulseBuffer getBuffer() {
++        return buffer;
++    }
++
++    /**
++     * Internal method to get the Virtual View (fake data).
++     */
++    public PulseVirtualView getVirtualView() {
++        return buffer.getVirtualView();
++    }
++
++    /**
++     * Gets a PulsePlayer instance for a Bukkit player.
++     * @param player the Bukkit player
++     * @return PulsePlayer or null if not available
++     */
++    public static PulsePlayer of(Player player) {
++        if (player instanceof CraftPlayer cp) {
++            if (cp.getHandle().connection instanceof ServerGamePacketListenerImpl listener) {
++                if (listener.pulseBuffer != null) {
++                    return new PulsePlayer(listener.pulseBuffer);
++                }
++            }
++        }
++        return null;
++    }
++}
+diff --git a/src/main/java/dev/pulsemc/api/virtual/block/PulseVirtualBlock.java b/src/main/java/dev/pulsemc/api/virtual/block/PulseVirtualBlock.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..2f5538dc91ae988adc1187ec017c617ecc9ee701
+--- /dev/null
++++ b/src/main/java/dev/pulsemc/api/virtual/block/PulseVirtualBlock.java
+@@ -0,0 +1,83 @@
++package dev.pulsemc.api.virtual.block;
++
++import dev.pulsemc.api.network.PulseNetwork;
++import dev.pulsemc.api.network.PulsePlayer;
++import org.bukkit.Location;
++import org.bukkit.block.data.BlockData;
++import org.bukkit.entity.Player;
++import org.jetbrains.annotations.Nullable;
++
++/**
++ * API for managing persistent virtual blocks.
++ */
++public class PulseVirtualBlock {
++
++    /**
++     * Begins a "Fake Block Context". While active, all block updates are marked as fake.
++     */
++    public static void beginContext(Player player) {
++        PulsePlayer pp = PulseNetwork.getPlayer(player);
++        if (pp != null) pp.getBuffer().setManualFakeMode(true);
++    }
++
++    /**
++     * Ends the fake block context.
++     */
++    public static void endContext(Player player) {
++        PulsePlayer pp = PulseNetwork.getPlayer(player);
++        if (pp != null) pp.getBuffer().setManualFakeMode(false);
++    }
++
++    /**
++     * Sets a persistent virtual block for the player.
++     */
++    public static void setBlock(Player player, Location loc, BlockData data) {
++        PulsePlayer pp = PulseNetwork.getPlayer(player);
++        if (pp == null) return;
++
++        net.minecraft.core.BlockPos pos = new net.minecraft.core.BlockPos(loc.getBlockX(), loc.getBlockY(), loc.getBlockZ());
++        net.minecraft.world.level.block.state.BlockState state = ((org.bukkit.craftbukkit.block.data.CraftBlockData) data).getState();
++
++        pp.getVirtualView().registerBlock(pos, state);
++        player.sendBlockChange(loc, data);
++    }
++
++    /**
++     * Removes a virtual block and restores the actual server-side block for the player.
++     */
++    public static void removeBlock(Player player, Location loc) {
++        PulsePlayer pp = PulseNetwork.getPlayer(player);
++        if (pp == null) return;
++
++        net.minecraft.core.BlockPos pos = new net.minecraft.core.BlockPos(loc.getBlockX(), loc.getBlockY(), loc.getBlockZ());
++
++        pp.getVirtualView().unregisterBlock(pos);
++
++        player.sendBlockChange(loc, loc.getBlock().getBlockData());
++    }
++
++    /**
++     * Gets the virtual block data a player is currently seeing at a location.
++     */
++    @Nullable
++    public static BlockData getBlock(Player player, Location loc) {
++        PulsePlayer pp = PulseNetwork.getPlayer(player);
++        if (pp == null) return null;
++
++        net.minecraft.core.BlockPos pos = new net.minecraft.core.BlockPos(loc.getBlockX(), loc.getBlockY(), loc.getBlockZ());
++
++        net.minecraft.world.level.block.state.BlockState state = pp.getVirtualView().getBlock(pos);
++
++        return state != null ? org.bukkit.craftbukkit.block.data.CraftBlockData.fromData(state) : null;
++    }
++
++    /**
++     * Clears all virtual blocks for the player.
++     */
++    public static void clearAll(Player player) {
++        PulsePlayer pp = PulseNetwork.getPlayer(player);
++        if (pp == null) return;
++
++        pp.getVirtualView().clear();
++    }
++}
+diff --git a/src/main/java/dev/pulsemc/command/PulseCommands.java b/src/main/java/dev/pulsemc/command/PulseCommands.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..f435d45cfc16ccf726614b555a27b67070483f92
+--- /dev/null
++++ b/src/main/java/dev/pulsemc/command/PulseCommands.java
+@@ -0,0 +1,122 @@
++package dev.pulsemc.command;
++
++import com.mojang.brigadier.CommandDispatcher;
++import com.mojang.brigadier.arguments.StringArgumentType;
++import com.mojang.brigadier.context.CommandContext;
++import com.mojang.brigadier.suggestion.Suggestions;
++import com.mojang.brigadier.suggestion.SuggestionsBuilder;
++import dev.pulsemc.config.ConfigManager;
++import dev.pulsemc.network.PulseBar;
++import dev.pulsemc.network.PulseMetrics;
++import net.kyori.adventure.text.minimessage.MiniMessage;
++import net.minecraft.commands.CommandSourceStack;
++import net.minecraft.commands.Commands;
++import net.minecraft.network.chat.Component;
++import org.bukkit.command.CommandSender;
++
++import java.util.concurrent.CompletableFuture;
++
++public class PulseCommands {
++    private static final MiniMessage mm = MiniMessage.miniMessage();
++
++    public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
++        dispatcher.register(
++            Commands.literal("pulse")
++                .requires(stack -> stack.getBukkitSender().hasPermission("pulse.admin"))
++
++                .then(Commands.literal("reload")
++                    .executes(PulseCommands::reload)
++                )
++
++                .then(Commands.literal("bar")
++                    .executes(PulseCommands::toggleBar)
++                )
++
++                .then(Commands.literal("stats")
++                    .executes(ctx -> sendStats(ctx, "all"))
++                    .then(Commands.argument("type", StringArgumentType.word())
++                        .suggests(PulseCommands::suggestStatsTypes)
++                        .executes(ctx -> sendStats(ctx, StringArgumentType.getString(ctx, "type")))
++                    )
++                )
++        );
++    }
++
++    private static CompletableFuture<Suggestions> suggestStatsTypes(CommandContext<CommandSourceStack> context, SuggestionsBuilder builder) {
++        builder.suggest("network", Component.literal("Network PPS and Bandwidth metrics"));
++        builder.suggest("cpu", Component.literal("CPU optimization and Syscalls analysis"));
++        builder.suggest("ram", Component.literal("Memory impact and GC pressure relief"));
++        builder.suggest("all", Component.literal("Show everything at once"));
++        return builder.buildFuture();
++    }
++
++
++    private static int reload(CommandContext<CommandSourceStack> ctx) {
++        CommandSender sender = ctx.getSource().getBukkitSender();
++
++        boolean hasIssues = ConfigManager.load();
++
++        PulseMetrics.reload();
++        PulseBar.reload();
++
++        if (!hasIssues) {
++            sender.sendMessage(mm.deserialize("<bold><gradient:#FF005D:#FF0048>Pulse</gradient></bold> <dark_gray>| <green>Configuration reloaded successfully!"));
++        } else {
++            sender.sendMessage(mm.deserialize("<bold><gradient:#FF005D:#FF0048>Pulse</gradient></bold> <dark_gray>| <red>Configuration reloaded with ISSUES:"));
++            sender.sendMessage(" ");
++
++            for (net.kyori.adventure.text.Component line : ConfigManager.lastLoadReport) {
++                sender.sendMessage(line);
++            }
++
++            sender.sendMessage(mm.deserialize("<grey>Safe default values were used for invalid settings."));
++        }
++        return 1;
++    }
++
++    private static int toggleBar(CommandContext<CommandSourceStack> ctx) {
++        if (ctx.getSource().getEntity() instanceof net.minecraft.server.level.ServerPlayer nmsPlayer) {
++            PulseBar.toggle(nmsPlayer.getBukkitEntity());
++        } else {
++            CommandSender sender = ctx.getSource().getBukkitSender();
++            sender.sendMessage(mm.deserialize("<bold><gradient:#FF005D:#FF0048>Pulse</gradient></bold> <dark_gray>| <red>Only for players!"));
++        }
++        return 1;
++    }
++
++    private static int sendStats(CommandContext<CommandSourceStack> ctx, String type) {
++        CommandSender sender = ctx.getSource().getBukkitSender();
++        type = type.toLowerCase();
++
++        if (type.equals("network") || type.equals("all")) {
++            double efficiency = 100 - (PulseMetrics.ppsPhysical / Math.max(1, PulseMetrics.ppsLogical) * 100);
++            sender.sendMessage(mm.deserialize("<grey>--- [ <white>Pulse Network</white> ] ---"));
++            sender.sendMessage(mm.deserialize("<grey>PPS (Logical):  <white>" + (int)PulseMetrics.ppsLogical + " pkt/s <grey>(Vanilla)"));
++            sender.sendMessage(mm.deserialize("<grey>PPS (Physical): <white>" + (int)PulseMetrics.ppsPhysical + " pkt/s <#ff2929>(Pulse)"));
++            sender.sendMessage(mm.deserialize("<grey>Calls Saved:    <white>" + (int)(PulseMetrics.logicalCounter.get() - PulseMetrics.physicalCounter.get()) + "/s" + "+" + String.format("%.1f", efficiency) + "%)"));
++            sender.sendMessage(" ");
++            sender.sendMessage(mm.deserialize("<grey>Bandwidth:      <green>" + String.format("%.2f", PulseMetrics.networkSpeedKbs) + "<white> kB/s"));
++            sender.sendMessage(mm.deserialize("<grey>Optimized Chunks: <gold>" + PulseMetrics.optimizedChunks.get() + " <grey>(mass updates prevented)"));
++            sender.sendMessage(" ");
++        }
++
++        if (type.equals("cpu") || type.equals("all")) {
++            double diff = PulseMetrics.vanillaCpuEst - PulseMetrics.cpuUsage;
++            if (diff < 0) diff = 0;
++            sender.sendMessage(mm.deserialize("<grey>--- [ <white>Pulse CPU Analyzer</white> ] ---"));
++            sender.sendMessage(mm.deserialize("<grey>Current Usage: " + String.format("%.2f", PulseMetrics.cpuUsage) + "%"));
++            sender.sendMessage(mm.deserialize("<grey>Vanilla Est:   " + String.format("%.2f", PulseMetrics.vanillaCpuEst) + "%"));
++            sender.sendMessage(" ");
++            sender.sendMessage(mm.deserialize("<white>Pulse Efficiency: <#ff2929>-" + String.format("%.3f", diff) + "% Total Load"));
++            sender.sendMessage(" ");
++        }
++
++        if (type.equals("ram") || type.equals("all")) {
++            sender.sendMessage(mm.deserialize("<grey>--- [ <white>Pulse Memory</white> ] ---"));
++            sender.sendMessage(mm.deserialize("<grey>Saved Allocations: <white>" + (PulseMetrics.savedAllocationsBytes / 1024 / 1024) + " MB <grey>(Total)"));
++            sender.sendMessage(" ");
++        }
++
++        return 1;
++    }
++}
+diff --git a/src/main/java/dev/pulsemc/config/ConfigManager.java b/src/main/java/dev/pulsemc/config/ConfigManager.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..3004ec3fff8241518d47005d84ef5a6c6096e02f
+--- /dev/null
++++ b/src/main/java/dev/pulsemc/config/ConfigManager.java
+@@ -0,0 +1,281 @@
++package dev.pulsemc.config;
++
++import net.kyori.adventure.text.Component;
++import net.kyori.adventure.text.minimessage.MiniMessage;
++import org.bukkit.configuration.file.YamlConfiguration;
++
++import java.io.File;
++import java.nio.file.Files;
++import java.util.ArrayList;
++import java.util.List;
++import java.util.function.Predicate;
++
++public class ConfigManager {
++    private static final File FILE = new File("pulse.yml");
++    private static final MiniMessage mm = MiniMessage.miniMessage();
++
++    public static final List<Component> lastLoadReport = new ArrayList<>();
++
++    public static boolean enabled = true;
++
++    // Batching
++    public static BatchingMode batchingMode = BatchingMode.SMART_EXECUTION;
++    public static int flushInterval = 25;
++    public static int maxBatchSize = 4096;
++    public static int maxBatchBytes = 1460;
++    public static int safetyMargin = 64;
++    public static List<String> instantPackets = new ArrayList<>();
++
++    // Optimization
++    public static boolean optOffsets = true;
++    public static boolean optExplosions = true;
++    public static int optExplosionThreshold = 512;
++
++    // Compatibility
++    public static boolean emulateEvents = true;
++    public static List<String> ignoredPackets = new ArrayList<>();
++
++    // Metrics
++    public static boolean metricsEnabled = true;
++    public static int metricsUpdateInterval = 1;
++    public static boolean moduleNetwork = true;
++    public static boolean moduleCPU = true;
++    public static boolean moduleRAM = true;
++
++    public enum BatchingMode { SMART_EXECUTION, STRICT_TICK, INTERVAL }
++
++    /**
++     * Loads config and generates error messages
++     * @return true if config has errors or warnings
++     */
++    public static boolean load() {
++        lastLoadReport.clear();
++        try {
++            if (!FILE.exists()) createDefaultConfig();
++
++            YamlConfiguration config = YamlConfiguration.loadConfiguration(FILE);
++
++
++            // Core
++            enabled = new Setting<>(config, "core.enabled", true)
++                .validateType(Boolean.class)
++                .get();
++
++
++            // Batching
++            maxBatchSize = new Setting<>(config, "batching.max-batch-size", 50)
++                .validateType(Integer.class)
++                .validate(val -> val > 0, "Batch size must be > 0!")
++                .warn(val -> val <= 4096, "Values > 4096 may cause packet loss/disconnects!")
++                .get();
++
++            maxBatchBytes = new Setting<>(config, "batching.max-batch-bytes", 1460)
++                .validateType(Integer.class)
++                .validate(val -> val >= 512, "MTU limit too low (<512)! Network may stall.")
++                .warn(val -> val <= 32000, "> 32000 bytes is dangerous due to multiple exceeding of MTU standard")
++                .get();
++
++            safetyMargin = new Setting<>(config, "batching.safety-margin-bytes", 64)
++                .validateType(Integer.class)
++                .get();
++
++            instantPackets = config.getStringList("batching.instant-packets");
++            if (instantPackets.isEmpty()) instantPackets = List.of("ClientboundHurtAnimationPacket", "ClientboundDamageEventPacket");
++
++            // Optimizations
++            optExplosions = new Setting<>(config, "optimization.explosions.enabled", true)
++                .validateType(Boolean.class)
++                .get();
++            optExplosionThreshold = new Setting<>(config, "optimization.explosions.block-change-threshold", 512)
++                .validateType(Integer.class)
++                .get();
++
++            // Metrics
++            metricsEnabled = new Setting<>(config, "metrics.enabled", true)
++                .validateType(Boolean.class)
++                .get();
++            metricsUpdateInterval = new Setting<>(config, "metrics.update-interval", 1)
++                .validateType(Integer.class)
++                .validate(val -> val >= 1, "Interval must be at least 1 second! Provided: %s")
++                .get();
++
++            // Compatibility
++            emulateEvents = new Setting<>(config, "compatibility.emulate-events", true)
++                .validateType(Boolean.class)
++                .get();
++            ignoredPackets = config.getStringList("compatibility.ignored-packets");
++
++            return !lastLoadReport.isEmpty();
++
++        } catch (Exception e) {
++            lastLoadReport.add(mm.deserialize("<red><bold>CRITICAL ERROR:</bold> Config file is broken! " + e.getMessage()));
++            e.printStackTrace();
++            return true;
++        }
++    }
++
++    private static class Setting<T> {
++        private final YamlConfiguration config;
++        private final String path;
++        private final T def;
++        private T value;
++        private boolean hasError = false;
++
++        public Setting(YamlConfiguration config, String path, T def) {
++            this.config = config;
++            this.path = path;
++            this.def = def;
++            this.value = (T) config.get(path, def);
++        }
++
++        public Setting<T> validateType(Class<?> expected) {
++            Object raw = config.get(path);
++            if (raw != null && !expected.isAssignableFrom(raw.getClass())) {
++                if (Number.class.isAssignableFrom(expected) && raw instanceof Number) {
++                    return this;
++                }
++
++                reportError(raw, "Must be " + expected.getSimpleName() + "! Provided: " + raw.getClass().getSimpleName());
++                this.value = def;
++                this.hasError = true;
++            }
++            return this;
++        }
++
++        public Setting<T> validate(Predicate<T> condition, String errorMsg) {
++            if (hasError) return this;
++            if (!condition.test(value)) {
++                reportError(value, String.format(errorMsg, value));
++                this.value = def;
++                this.hasError = true;
++            }
++            return this;
++        }
++
++        public Setting<T> warn(Predicate<T> condition, String warnMsg) {
++            if (hasError) return this;
++            if (!condition.test(value)) {
++                reportWarning(value, warnMsg);
++            }
++            return this;
++        }
++
++        public Setting<T> parser(java.util.function.Function<Object, T> parser) {
++            try {
++                Object raw = config.get(path);
++                if (raw != null) {
++                    this.value = parser.apply(raw);
++                }
++            } catch (Exception e) {
++                this.hasError = true;
++            }
++            return this;
++        }
++
++        public Setting<T> onError(String msg) {
++            if (hasError) {
++                reportError(config.get(path), msg);
++                this.value = def;
++            }
++            return this;
++        }
++
++        public T get() {
++            return value;
++        }
++
++        private void reportError(Object wrongValue, String msg) {
++            lastLoadReport.add(mm.deserialize("  <grey>on <yellow>" + path + "<grey>:"));
++            lastLoadReport.add(mm.deserialize("    Value: <red>" + wrongValue + "<red><italic><--[HERE]"));
++            lastLoadReport.add(mm.deserialize("    <red>ERROR: <grey>" + msg + " <grey>(Reset to: <green>" + def + "<grey>)"));
++            lastLoadReport.add(Component.text(" "));
++        }
++
++        private void reportWarning(Object riskyValue, String msg) {
++            lastLoadReport.add(mm.deserialize("  <grey>on <yellow>" + path + "<grey>:"));
++            lastLoadReport.add(mm.deserialize("    Value: <gold>" + riskyValue + "<red><italic><--[HERE]"));
++            lastLoadReport.add(mm.deserialize("    <gold>WARNING: <grey>" + msg));
++            lastLoadReport.add(Component.text(" "));
++        }
++    }
++
++    private static void createDefaultConfig() throws java.io.IOException {
++        String template = """
++            # +-------------------------------------------------------------------+
++            # |                       Pulse Software Config                       |
++            # |                    High-Performance Networking                    |
++            # +-------------------------------------------------------------------+
++            
++            # Core settings
++            core:
++              # Enable Pulse system.
++              # If false, server behaves like vanilla Paper.
++              enabled: true
++            
++            # Packet batching (core Pulse feature)
++            batching:
++            
++              # MTU safety limit.
++              # Buffer is flushed immediately if this size is exceeded.
++              max-batch-bytes: 1460
++            
++              # Number of packets in batch limit
++              max-batch-size: 4096
++            
++              # Packets that bypass batching (critical for PvP)
++              instant-packets:
++                - ClientboundHurtAnimationPacket
++                - ClientboundDamageEventPacket
++            
++              # Pulse will flush the buffer BEFORE adding a new packet if remaining space is less than this.
++              # Prevents MTU overflow without expensive per-packet size calculation.
++              safety-margin-bytes: 64
++            
++            # Protocol-level optimizations
++            optimization:
++            
++              # Smart explosion handling
++              explosions:
++                enabled: true
++                # Re-send whole chunk if block changes exceed this value
++                block-change-threshold: 512
++            
++            
++            # Compatibility & behavior
++            compatibility:
++            
++              # Emulate Bukkit/Paper packet events.
++              # Required for ProtocolLib, AntiCheat, Denizen.
++              emulate-events: true
++            
++              # Packets that Pulse will never batch or modify
++              ignored-packets: []
++            #    - ClientboundMapItemDataPacket
++            
++            
++            metrics:
++              # Enable internal Pulse metrics collection.
++              # Used for "/pulse stats".
++              enabled: true
++            
++              # Metrics update interval (in seconds).
++              update-interval: 1
++            
++              # Metric modules to collect
++              modules:
++                # Network-level statistics:
++                # logical vs physical packets, batching efficiency, saved calls.
++                network: true
++            
++                # CPU usage estimation:
++                # compares Pulse execution cost against vanilla packet sending.
++                cpu-estimation: true
++            
++                # Memory & GC impact analysis:
++                # tracks reduced allocations
++                memory-impact: true
++            
++            """;
++        Files.writeString(FILE.toPath(), template);
++    }
++}
+diff --git a/src/main/java/dev/pulsemc/network/PulseBar.java b/src/main/java/dev/pulsemc/network/PulseBar.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..85e8d3135495b4f945e3ebe8a2d56064db2563f4
+--- /dev/null
++++ b/src/main/java/dev/pulsemc/network/PulseBar.java
+@@ -0,0 +1,97 @@
++package dev.pulsemc.network;
++
++import dev.pulsemc.config.ConfigManager;
++import net.kyori.adventure.bossbar.BossBar;
++import net.kyori.adventure.text.Component;
++import net.kyori.adventure.text.minimessage.MiniMessage;
++import org.bukkit.entity.Player;
++
++import java.util.HashSet;
++import java.util.Set;
++import java.util.UUID;
++import java.util.concurrent.Executors;
++import java.util.concurrent.ScheduledExecutorService;
++import java.util.concurrent.ScheduledFuture;
++import java.util.concurrent.TimeUnit;
++
++public class PulseBar {
++    private static final MiniMessage mm = MiniMessage.miniMessage();
++    private static final BossBar bossBar = BossBar.bossBar(
++        Component.empty(),
++        1.0f,
++        BossBar.Color.GREEN,
++        BossBar.Overlay.NOTCHED_20
++    );
++
++    private static final Set<UUID> viewers = new HashSet<>();
++    private static final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
++
++    private static ScheduledFuture<?> currentTask;
++
++    public static void toggle(Player player) {
++        if (viewers.contains(player.getUniqueId())) {
++            viewers.remove(player.getUniqueId());
++            player.hideBossBar(bossBar);
++            player.sendMessage(mm.deserialize("<bold><gradient:#FF005D:#FF0048>Pulse</gradient></bold> <dark_gray>| <grey>Metrics bar <red>disabled<grey>."));
++        } else {
++            viewers.add(player.getUniqueId());
++            player.showBossBar(bossBar);
++            player.sendMessage(mm.deserialize("<bold><gradient:#FF005D:#FF0048>Pulse</gradient></bold> <dark_gray>| <grey>Metrics bar <green>enabled<grey>."));
++        }
++    }
++
++    public static void reload() {
++        start();
++    }
++
++    public static void start() {
++        if (currentTask != null && !currentTask.isCancelled()) {
++            currentTask.cancel(false);
++        }
++
++        int interval = Math.max(1, ConfigManager.metricsUpdateInterval);
++
++        currentTask = scheduler.scheduleAtFixedRate(() -> {
++            if (viewers.isEmpty()) return;
++            try {
++                updateBar();
++            } catch (Exception e) {
++                e.printStackTrace();
++            }
++        }, 1, interval, TimeUnit.SECONDS);
++    }
++
++    private static void updateBar() {
++        double logical = Math.max(1, PulseMetrics.ppsLogical);
++        double efficiency = (logical - PulseMetrics.ppsPhysical) / logical;
++
++        if (efficiency < 0) efficiency = 0;
++        if (efficiency > 1) efficiency = 1;
++
++        BossBar.Color color;
++        if (efficiency > 0.75) color = BossBar.Color.GREEN;
++        else if (efficiency > 0.40) color = BossBar.Color.YELLOW;
++        else color = BossBar.Color.RED;
++
++        double speed = PulseMetrics.networkSpeedKbs;
++        String speedStr;
++        if (speed > 1024) {
++            speedStr = String.format("%.2f MB/s", speed / 1024.0);
++        } else {
++            speedStr = String.format("%.1f KB/s", speed);
++        }
++
++        String title = String.format(
++            "<bold><gradient:#FF005D:#FF0048>Pulse</gradient></bold> <dark_gray>| <white>Eff: <color:%s>%d%%</color> <dark_gray>| <white>Vanilla: <aqua>%d p/s <dark_gray>| <white>Out: <aqua>%d p/s</aqua> <gray>(%s)",
++            (efficiency > 0.75 ? "#55FF55" : (efficiency > 0.4 ? "#FFFF55" : "#FF5555")),
++            (int)(efficiency * 100),
++            (int) PulseMetrics.ppsLogical,
++            (int) PulseMetrics.ppsPhysical,
++            speedStr
++        );
++
++        bossBar.name(mm.deserialize(title));
++        bossBar.progress((float) efficiency);
++        bossBar.color(color);
++    }
++}
+diff --git a/src/main/java/dev/pulsemc/network/PulseBuffer.java b/src/main/java/dev/pulsemc/network/PulseBuffer.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..cf647675a13378d29c93bd002479c925dbdfdba4
+--- /dev/null
++++ b/src/main/java/dev/pulsemc/network/PulseBuffer.java
+@@ -0,0 +1,330 @@
++package dev.pulsemc.network;
++
++import dev.pulsemc.config.ConfigManager;
++import dev.pulsemc.api.events.PulsePacketSendEvent;
++import net.minecraft.network.protocol.Packet;
++import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
++import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
++import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket;
++import net.minecraft.server.network.ServerCommonPacketListenerImpl;
++import net.minecraft.server.network.ServerGamePacketListenerImpl;
++import net.minecraft.world.level.ChunkPos;
++import net.minecraft.world.level.chunk.LevelChunk;
++import org.bukkit.Bukkit;
++import io.netty.channel.ChannelFutureListener;
++import org.jspecify.annotations.Nullable;
++import java.util.ArrayList;
++import java.util.HashMap;
++import java.util.List;
++import java.util.Map;
++import java.util.concurrent.atomic.AtomicInteger;
++import dev.pulsemc.api.enums.FlushReason;
++import dev.pulsemc.api.events.PulseBufferFlushEvent;
++import dev.pulsemc.api.events.PulseChunkOptimizationEvent;
++
++public class PulseBuffer {
++    private final ServerCommonPacketListenerImpl listener;
++    private final AtomicInteger bufferedCount = new AtomicInteger(0);
++    private final AtomicInteger currentBatchBytes = new AtomicInteger(0);
++
++    private final PulseVirtualView virtualView = new PulseVirtualView();
++    private boolean manualFakeMode = false;
++
++
++    public PulseBuffer(ServerCommonPacketListenerImpl listener) {
++        this.listener = listener;
++    }
++
++    private record PacketEntry(Packet<?> packet, @Nullable ChannelFutureListener listener) {}
++    private final List<PacketEntry> blockQueue = new ArrayList<>();
++
++
++    public void add(Packet<?> packet, @Nullable ChannelFutureListener sendListener) {
++        if (packet == null) return;
++        String packetName = packet.getClass().getSimpleName();
++
++        // Restore fake blocks
++        if (packet instanceof net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket p) {
++            listener.connection.send(packet, sendListener, true);
++            restoreVirtualBlocks(p.getX(), p.getZ());
++            return;
++        }
++
++        // Ignored Packets
++        if (ConfigManager.ignoredPackets.contains(packetName)) {
++            listener.connection.send(packet, sendListener, true);
++            return;
++        }
++
++        // Chat Safety
++        if (!Bukkit.isPrimaryThread() || isChatPacket(packet) || !ConfigManager.enabled) {
++            listener.connection.send(packet, sendListener, true);
++            return;
++        }
++
++        // Join Safety
++        boolean isIngame = (listener instanceof ServerGamePacketListenerImpl);
++        if (!isIngame) {
++            listener.connection.send(packet, sendListener, true);
++            return;
++        }
++
++        PulseMetrics.logicalCounter.incrementAndGet();
++
++        // compatibility.emulate-events
++        boolean canOptimize = true;
++
++        if (ConfigManager.emulateEvents) {
++            org.bukkit.entity.Player bukkitPlayer = ((ServerGamePacketListenerImpl) listener).getCraftPlayer();
++            if (bukkitPlayer != null) {
++                PulsePacketSendEvent event = new PulsePacketSendEvent(bukkitPlayer, packet);
++                Bukkit.getPluginManager().callEvent(event);
++                if (event.isCancelled()) return;
++
++                packet = event.getPacket();
++                canOptimize = event.canBeOptimized();
++
++                if (event.isForceSendImmediately()) {
++                    flush(FlushReason.INSTANT);
++                    listener.connection.send(packet, sendListener, true);
++                    PulseMetrics.physicalCounter.incrementAndGet();
++                    return;
++                }
++            }
++        }
++
++        // Explosion Optimization
++        if (ConfigManager.optExplosions && isBlockUpdate(packet) && canOptimize) {
++            handleBlockUpdate(packet, sendListener);
++            return;
++        }
++
++        // Instant Packets
++        if (isCritical(packet) || ConfigManager.instantPackets.contains(packetName)) {
++            flush(FlushReason.INSTANT);
++            listener.connection.send(packet, sendListener, true);
++            PulseMetrics.physicalCounter.incrementAndGet();
++            return;
++        }
++
++        // Flushing the buffer when it is full.
++        if (getPendingBytes() > (ConfigManager.maxBatchBytes - ConfigManager.safetyMargin)) {
++            flush(FlushReason.LIMIT_BYTES); // Pulse - API Integration
++        }
++
++        // Batching
++        listener.connection.send(packet, sendListener, false);
++
++        // Count limit
++        if (bufferedCount.incrementAndGet() >= ConfigManager.maxBatchSize) {
++            flush(FlushReason.LIMIT_COUNT); // Pulse - API Integration
++        }
++
++
++    }
++
++    /**
++     * Sends all packets accumulated in the buffer to the client.
++     * @param reason The reason for the flush (API/Network/Tick)
++     */
++    public void flush(FlushReason reason) {
++        if (!blockQueue.isEmpty()) {
++            processBlockQueue();
++        }
++
++        long pending = getPendingBytes();
++        int count = bufferedCount.get();
++
++        if (count == 0 && pending == 0) return;
++
++        // API Event
++        if (listener instanceof ServerGamePacketListenerImpl gameListener && gameListener.player != null) {
++            if (PulseBufferFlushEvent.getHandlerList().getRegisteredListeners().length > 0) {
++                Bukkit.getPluginManager().callEvent(new PulseBufferFlushEvent(
++                    gameListener.getCraftPlayer(), reason, count, pending
++                ));
++            }
++        }
++
++        PulseMetrics.totalBytesSent.addAndGet(pending);
++        listener.connection.flushChannel();
++
++        bufferedCount.set(0);
++        currentBatchBytes.set(0);
++        PulseMetrics.physicalCounter.incrementAndGet();
++    }
++
++    public void flush() {
++        flush(FlushReason.MANUAL);
++    }
++
++    private boolean isChatPacket(Packet<?> packet) {
++        String name = packet.getClass().getSimpleName();
++        return name.contains("Chat") || name.contains("Message") || name.contains("Disguised");
++    }
++
++
++    private boolean isCritical(Packet<?> packet) {
++        String name = packet.getClass().getSimpleName();
++        return name.contains("KeepAlive") || name.contains("Disconnect") ||
++            name.contains("Login") || name.contains("Handshake") ||
++            name.contains("Status");
++    }
++
++    /**
++     * @return The bytes that are stored in the buffer.
++     */
++    public long getPendingBytes() {
++        var channel = listener.connection.channel;
++        if (channel != null && channel.unsafe() != null && channel.unsafe().outboundBuffer() != null) {
++            return channel.unsafe().outboundBuffer().totalPendingWriteBytes();
++        }
++        return 0;
++    }
++
++    private void handleBlockUpdate(Packet<?> packet, @Nullable ChannelFutureListener listener) {
++        if (isFakeBlock(packet) || manualFakeMode) {
++            long key = getChunkKey(packet);
++
++            if (packet instanceof net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket p) {
++                virtualView.registerBlock(p.getPos(), p.getBlockState());
++            }
++
++            queuePacketToNetty(packet, listener);
++            return;
++        }
++        blockQueue.add(new PacketEntry(packet, listener));
++    }
++
++    /**
++     * Automatically detects if a block update is "fake" by comparing it with the actual world state.
++     * This keeps plugins like Denizen working out-of-the-box.
++     */
++    private boolean isFakeBlock(Packet<?> packet) {
++        if (!(this.listener instanceof ServerGamePacketListenerImpl gameListener)) return false;
++        try {
++            if (packet instanceof net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket p) {
++                return !p.getBlockState().equals(gameListener.player.level().getBlockState(p.getPos()));
++            }
++            if (packet instanceof net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket p) {
++                if (p.positions.length > 0) {
++                    var pos = p.sectionPos.relativeToBlockPos(p.positions[0]);
++                    return !p.states[0].equals(gameListener.player.level().getBlockState(pos));
++                }
++            }
++        } catch (Exception ignored) {}
++        return false;
++    }
++
++    public void setManualFakeMode(boolean state) {
++        this.manualFakeMode = state;
++    }
++
++    private void processBlockQueue() {
++        if (blockQueue.isEmpty()) return;
++
++        List<PacketEntry> processingQueue = new ArrayList<>(blockQueue);
++        blockQueue.clear();
++
++        if (!(listener instanceof ServerGamePacketListenerImpl gameListener) || gameListener.player == null) {
++            processingQueue.forEach(e -> queuePacketToNetty(e.packet(), e.listener()));
++            return;
++        }
++
++        Map<Long, List<PacketEntry>> batchMap = new HashMap<>();
++        Map<Long, Integer> chunkBlockCounts = new HashMap<>();
++
++        for (PacketEntry entry : processingQueue) {
++            long key = getChunkKey(entry.packet());
++            batchMap.computeIfAbsent(key, k -> new ArrayList<>()).add(entry);
++
++            int count = 1;
++            if (entry.packet() instanceof ClientboundSectionBlocksUpdatePacket sectionPacket) {
++                count = sectionPacket.positions.length;
++            }
++            chunkBlockCounts.merge(key, count, Integer::sum);
++        }
++
++        for (Map.Entry<Long, List<PacketEntry>> entry : batchMap.entrySet()) {
++            long chunkKey = entry.getKey();
++            List<PacketEntry> entries = entry.getValue();
++            int totalChanges = chunkBlockCounts.getOrDefault(chunkKey, 0);
++
++            if (totalChanges >= ConfigManager.optExplosionThreshold) {
++                if (virtualView.isChunkProtected(chunkKey)) {
++                    entries.forEach(e -> queuePacketToNetty(e.packet(), e.listener()));
++                    continue;
++                }
++
++                int x = ChunkPos.getX(chunkKey);
++                int z = ChunkPos.getZ(chunkKey);
++                LevelChunk chunk = gameListener.player.level().getChunkIfLoaded(x, z);
++
++                if (chunk != null) {
++
++                    // API Event
++                    boolean shouldOptimize = true;
++                    if (PulseChunkOptimizationEvent.getHandlerList().getRegisteredListeners().length > 0) {
++                        PulseChunkOptimizationEvent event = new PulseChunkOptimizationEvent(
++                            gameListener.getCraftPlayer(),
++                            gameListener.getCraftPlayer().getWorld().getChunkAt(x, z),
++                            totalChanges
++                        );
++                        Bukkit.getPluginManager().callEvent(event);
++                        if (event.isCancelled()) shouldOptimize = false;
++                    }
++
++                    if (shouldOptimize) {
++                        PulseMetrics.optimizedChunks.incrementAndGet();
++                        ClientboundLevelChunkWithLightPacket chunkPacket = new ClientboundLevelChunkWithLightPacket(chunk, gameListener.player.level().getLightEngine(), null, null);
++                        queuePacketToNetty(chunkPacket, null);
++                    } else {
++                        entries.forEach(e -> queuePacketToNetty(e.packet(), e.listener()));
++                    }
++                } else {
++                    entries.forEach(e -> queuePacketToNetty(e.packet(), e.listener()));
++                }
++            } else {
++                entries.forEach(e -> queuePacketToNetty(e.packet(), e.listener()));
++            }
++        }
++    }
++
++    private boolean isBlockUpdate(Packet<?> packet) {
++        return packet instanceof ClientboundBlockUpdatePacket ||
++            packet instanceof ClientboundSectionBlocksUpdatePacket;
++    }
++
++    private void queuePacketToNetty(Packet<?> packet, ChannelFutureListener listenerCb) {
++        listener.connection.send(packet, listenerCb, false);
++
++        if (getPendingBytes() > (ConfigManager.maxBatchBytes - ConfigManager.safetyMargin)
++            || bufferedCount.incrementAndGet() >= ConfigManager.maxBatchSize) {
++            flush();
++        }
++    }
++
++    private long getChunkKey(Packet<?> packet) {
++        if (packet instanceof ClientboundBlockUpdatePacket blockPacket) {
++            return ChunkPos.asLong(blockPacket.getPos());
++        } else if (packet instanceof ClientboundSectionBlocksUpdatePacket sectionPacket) {
++            return sectionPacket.sectionPos.chunk().toLong();
++        }
++        return 0;
++    }
++
++    private void restoreVirtualBlocks(int chunkX, int chunkZ) {
++        Map<net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState> blocks = virtualView.getBlocksInChunk(chunkX, chunkZ);
++        if (blocks == null) return;
++
++        blocks.forEach((pos, state) -> {
++            net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket repair =
++                new net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket(pos, state);
++            listener.connection.send(repair, null, true);
++        });
++    }
++
++    public PulseVirtualView getVirtualView() {
++        return virtualView;
++    }
++}
+diff --git a/src/main/java/dev/pulsemc/network/PulseMetrics.java b/src/main/java/dev/pulsemc/network/PulseMetrics.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..75ac9f984854189fcee1151b8e32bc8e07ddc7bd
+--- /dev/null
++++ b/src/main/java/dev/pulsemc/network/PulseMetrics.java
+@@ -0,0 +1,97 @@
++package dev.pulsemc.network;
++
++import dev.pulsemc.config.ConfigManager;
++import java.lang.management.ManagementFactory;
++import com.sun.management.OperatingSystemMXBean;
++import java.util.concurrent.Executors;
++import java.util.concurrent.ScheduledExecutorService;
++import java.util.concurrent.ScheduledFuture;
++import java.util.concurrent.TimeUnit;
++import java.util.concurrent.atomic.AtomicLong;
++
++public class PulseMetrics {
++    private static final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
++    private static final OperatingSystemMXBean osBean = (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
++
++    public static final AtomicLong logicalCounter = new AtomicLong(0);
++    public static final AtomicLong physicalCounter = new AtomicLong(0);
++
++    private static long lastLogical = 0;
++    private static long lastPhysical = 0;
++    private static long lastBytes = 0;
++
++    public static final AtomicLong optimizedChunks = new AtomicLong(0);
++    public static final AtomicLong totalBytesSent = new AtomicLong(0);
++
++    public static double ppsLogical = 0;
++    public static double ppsPhysical = 0;
++    public static double cpuUsage = 0;
++    public static double vanillaCpuEst = 0;
++    public static long savedAllocationsBytes = 0;
++    public static long totalSavedSyscalls = 0;
++    public static double networkSpeedKbs = 0; // Скорость в КБ/с
++
++    public static final AtomicLong flushReasonLimit = new AtomicLong(0);
++    public static final AtomicLong flushReasonTick = new AtomicLong(0);
++    public static final AtomicLong flushReasonInstant = new AtomicLong(0);
++
++    private static ScheduledFuture<?> currentTask;
++
++
++    public static void start() {
++        if (currentTask != null && !currentTask.isCancelled()) {
++            currentTask.cancel(false);
++        }
++
++        int interval = Math.max(1, ConfigManager.metricsUpdateInterval);
++
++        scheduler.scheduleAtFixedRate(() -> {
++            if (!ConfigManager.metricsEnabled) return;
++
++            long currentLogical = logicalCounter.get();
++            long currentPhysical = physicalCounter.get();
++            long currentBytes = totalBytesSent.get();
++
++            // Calculating PPS
++            ppsLogical = (double) (currentLogical - lastLogical) / interval;
++            ppsPhysical = (double) (currentPhysical - lastPhysical) / interval;
++            double bytesDiff = currentBytes - lastBytes;
++            networkSpeedKbs = (bytesDiff / 1024.0) / interval;
++
++            lastLogical = currentLogical;
++            lastPhysical = currentPhysical;
++            lastBytes = currentBytes;
++
++            cpuUsage = osBean.getProcessCpuLoad() * 100.0 * Runtime.getRuntime().availableProcessors();
++
++            double savedPerSec = ppsLogical - ppsPhysical;
++            if (savedPerSec > 0) {
++                totalSavedSyscalls += (long) (savedPerSec * interval);
++                // 8.5mcs = 0.00085% on 1 PPS
++                double cpuRecovered = (savedPerSec * 8.5) / 10000.0;
++                vanillaCpuEst = cpuUsage + cpuRecovered;
++            } else {
++                vanillaCpuEst = cpuUsage;
++            }
++
++            savedAllocationsBytes += (long) (savedPerSec * 512 * interval);
++
++            // API Event
++            try {
++                if (dev.pulsemc.api.events.PulseMetricUpdateEvent.getHandlerList().getRegisteredListeners().length > 0) {
++                    double savings = Math.max(0, vanillaCpuEst - cpuUsage);
++                    org.bukkit.Bukkit.getPluginManager().callEvent(
++                        new dev.pulsemc.api.events.PulseMetricUpdateEvent(ppsLogical, ppsPhysical, networkSpeedKbs, savings)
++                    );
++                }
++            } catch (Exception e) {
++                e.printStackTrace();
++            }
++
++        }, 1, interval, TimeUnit.SECONDS);
++    }
++
++    public static void reload() {
++        start();
++    }
++}
+diff --git a/src/main/java/dev/pulsemc/network/PulseVirtualView.java b/src/main/java/dev/pulsemc/network/PulseVirtualView.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..8f0b1cb2c8786d5d5648a7b18117ff71f7754d8d
+--- /dev/null
++++ b/src/main/java/dev/pulsemc/network/PulseVirtualView.java
+@@ -0,0 +1,52 @@
++package dev.pulsemc.network;
++
++import net.minecraft.core.BlockPos;
++import net.minecraft.world.level.ChunkPos;
++import net.minecraft.world.level.block.state.BlockState;
++import java.util.HashMap;
++import java.util.Map;
++import java.util.concurrent.ConcurrentHashMap;
++
++public class PulseVirtualView {
++    private final Map<Long, Map<BlockPos, BlockState>> virtualBlocks = new ConcurrentHashMap<>();
++    private final Map<Long, Long> chunkTimestamps = new ConcurrentHashMap<>();
++    private static final long FAKE_TTL = 30_000L;
++
++    public void registerBlock(BlockPos pos, BlockState state) {
++        long key = ChunkPos.asLong(pos.getX() >> 4, pos.getZ() >> 4);
++        virtualBlocks.computeIfAbsent(key, k -> new HashMap<>()).put(pos, state);
++        chunkTimestamps.put(key, System.currentTimeMillis());
++    }
++
++    public void unregisterBlock(BlockPos pos) {
++        long key = ChunkPos.asLong(pos.getX() >> 4, pos.getZ() >> 4);
++        Map<BlockPos, BlockState> chunkMap = virtualBlocks.get(key);
++        if (chunkMap != null) {
++            chunkMap.remove(pos);
++            if (chunkMap.isEmpty()) virtualBlocks.remove(key);
++        }
++    }
++
++    public Map<BlockPos, BlockState> getBlocksInChunk(int x, int z) {
++        return virtualBlocks.get(ChunkPos.asLong(x, z));
++    }
++
++    public boolean isChunkProtected(long chunkKey) {
++        Long lastUpdate = chunkTimestamps.get(chunkKey);
++        return lastUpdate != null && (System.currentTimeMillis() - lastUpdate < FAKE_TTL);
++    }
++
++    public void clear() {
++        virtualBlocks.clear();
++        chunkTimestamps.clear();
++    }
++
++    /**
++     * Gets the specific block state at position.
++     */
++    public BlockState getBlock(BlockPos pos) {
++        long key = ChunkPos.asLong(pos.getX() >> 4, pos.getZ() >> 4);
++        Map<BlockPos, BlockState> chunkMap = virtualBlocks.get(key);
++        return chunkMap != null ? chunkMap.get(pos) : null;
++    }
++}

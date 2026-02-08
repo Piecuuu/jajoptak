@@ -1,0 +1,76 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Piecuuu <56731916+Piecuuu@users.noreply.github.com>
+Date: Sun, 8 Feb 2026 00:42:01 +0100
+Subject: [PATCH] per-player locator bar
+
+
+diff --git a/net/minecraft/server/level/ServerPlayer.java b/net/minecraft/server/level/ServerPlayer.java
+index cf22a560c331f08f7c1729ad5a40d966e1726a96..6ac40aad2cb197dfe3bcbb21dde977efc13eb58b 100644
+--- a/net/minecraft/server/level/ServerPlayer.java
++++ b/net/minecraft/server/level/ServerPlayer.java
+@@ -438,6 +438,7 @@ public class ServerPlayer extends Player implements ca.spottedleaf.moonrise.patc
+     private boolean tpsBar = false; // Purpur - Implement TPSBar
+     private boolean compassBar = false; // Purpur - Add compass command
+     private boolean ramBar = false; // Purpur - Implement rambar commands
++    private boolean forceEnableLocatorBar = false; // piecuu - per-player locator bar
+     public boolean smoothWorldTeleport; // Slice
+ 
+     // Paper start - rewrite chunk system
+@@ -3377,4 +3378,20 @@ public class ServerPlayer extends Player implements ca.spottedleaf.moonrise.patc
+         this.ramBar = ramBar;
+     }
+     // Purpur end - Add rambar command
++
++    // piecuu start - per-player locator bar
++    public boolean forceEnableLocatorBar() {
++        return this.forceEnableLocatorBar;
++    }
++
++    public void forceEnableLocatorBar(boolean forceEnableLocatorBar) {
++        this.forceEnableLocatorBar = forceEnableLocatorBar;
++        net.minecraft.server.waypoints.ServerWaypointManager waypointManager = this.level().getWaypointManager();
++        if(this.forceEnableLocatorBar()) {
++            waypointManager.connectPlayer(this);
++        } else {
++            waypointManager.disconnectPlayer(this);
++        }
++    }
++    // piecuu end - per-player locator bar
+ }
+diff --git a/net/minecraft/server/waypoints/ServerWaypointManager.java b/net/minecraft/server/waypoints/ServerWaypointManager.java
+index 3bf75ecdee76c53e178509619be8011bce4226d9..9007a378e150f8b9799e9cdcdc45f19e81164320 100644
+--- a/net/minecraft/server/waypoints/ServerWaypointManager.java
++++ b/net/minecraft/server/waypoints/ServerWaypointManager.java
+@@ -89,6 +89,23 @@ public class ServerWaypointManager implements WaypointManager<WaypointTransmitte
+         }
+     }
+ 
++    // piecuu start - per-player locator bar
++    public void disconnectPlayer(ServerPlayer player) {
++        if (org.dreeam.leaf.config.modules.async.SparklyPaperParallelWorldTicking.enabled) ca.spottedleaf.moonrise.common.util.TickThread.ensureTickThread(this.level, "Cannot remove player from waypoints off-main");
++        this.connections.row(player).values().removeIf(connection -> {
++            connection.disconnect();
++            return true;
++        });
++    }
++
++    public void connectPlayer(ServerPlayer player) {
++        if (org.dreeam.leaf.config.modules.async.SparklyPaperParallelWorldTicking.enabled) ca.spottedleaf.moonrise.common.util.TickThread.ensureTickThread(this.level, "Cannot remove player from waypoints off-main");
++        for (WaypointTransmitter waypointTransmitter : this.waypoints) {
++            this.createConnection(player, waypointTransmitter);
++        }
++    }
++    // piecuu end - per-player locator bar
++
+     public void removePlayer(ServerPlayer player) {
+         if (org.dreeam.leaf.config.modules.async.SparklyPaperParallelWorldTicking.enabled) ca.spottedleaf.moonrise.common.util.TickThread.ensureTickThread(this.level, "Cannot remove player from waypoints off-main"); // Leaf - SparklyPaper - parallel world ticking
+         this.connections.row(player).values().removeIf(connection -> {
+@@ -116,7 +133,7 @@ public class ServerWaypointManager implements WaypointManager<WaypointTransmitte
+     }
+ 
+     private static boolean isLocatorBarEnabledFor(ServerPlayer player) {
+-        return player.level().getGameRules().get(GameRules.LOCATOR_BAR);
++        return player.level().getGameRules().get(GameRules.LOCATOR_BAR) || player.forceEnableLocatorBar(); // piecuu - per-player locator bar
+     }
+ 
+     private void createConnection(ServerPlayer player, WaypointTransmitter waypoint) {

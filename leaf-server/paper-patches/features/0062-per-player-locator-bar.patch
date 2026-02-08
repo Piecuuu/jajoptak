@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Piecuuu <56731916+Piecuuu@users.noreply.github.com>
+Date: Sun, 8 Feb 2026 00:41:56 +0100
+Subject: [PATCH] per-player locator bar
+
+
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
+index 7cc08bb9640a19d182c65297a812c9bce787fd69..a9b6e454c9e8bf7aa5612cd15983b575d41dccc4 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
+@@ -3514,4 +3514,16 @@ public class CraftPlayer extends CraftHumanEntity implements Player, PluginMessa
+         return future;
+     }
+     // Leaf end - KeYi - Player Skull API
++
++    // piecuu start - per-player locator bar
++    @Override
++    public boolean getForceLocatorBar() {
++        return this.getHandle().forceEnableLocatorBar();
++    }
++
++    @Override
++    public void setForceLocatorBar(boolean enabled) {
++        this.getHandle().forceEnableLocatorBar(enabled);
++    }
++    // piecuu end - per-player locator bar
+ }
