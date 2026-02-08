@@ -252,10 +252,10 @@ index 0e1411d820caef8a6a80bca07d9c76e9615ff13e..a7d3add505c81a8c63a1721e8fad2f48
      }
  }
 diff --git a/net/minecraft/server/network/ServerGamePacketListenerImpl.java b/net/minecraft/server/network/ServerGamePacketListenerImpl.java
-index 706ec1af961f4c746af345fb3b45fe70947b043f..6bf90823cfe82676c6be09ccea28eabb559643ea 100644
+index 2c824def972d5b9017090ecfcff816eed44e3676..0fba06999d9f674525584d00c2ff5418a3d063f7 100644
 --- a/net/minecraft/server/network/ServerGamePacketListenerImpl.java
 +++ b/net/minecraft/server/network/ServerGamePacketListenerImpl.java
-@@ -381,6 +381,11 @@ public class ServerGamePacketListenerImpl
+@@ -382,6 +382,11 @@ public class ServerGamePacketListenerImpl
                  this.disconnect(Component.translatable("multiplayer.disconnect.idling"), org.bukkit.event.player.PlayerKickEvent.Cause.IDLING); // Paper - kick event cause
              }
          }
