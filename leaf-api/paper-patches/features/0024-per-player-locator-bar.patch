@@ -5,10 +5,10 @@ Subject: [PATCH] per-player locator bar
 
 
 diff --git a/src/main/java/org/bukkit/entity/Player.java b/src/main/java/org/bukkit/entity/Player.java
-index 45678845eb6d0beafe2fe3326dddf68d66b17594..cf1b04d898bcaa5f3c48268c3f2709504923a854 100644
+index 7ca713c737f977446488486095a028d7a8e8353c..76449e35ba7d6a6220e62e4a0980ebbf8551ee38 100644
 --- a/src/main/java/org/bukkit/entity/Player.java
 +++ b/src/main/java/org/bukkit/entity/Player.java
-@@ -4179,4 +4179,20 @@ public interface Player extends HumanEntity, Conversable, OfflinePlayer, PluginM
+@@ -4187,4 +4187,20 @@ public interface Player extends HumanEntity, Conversable, OfflinePlayer, PluginM
      @Deprecated(forRemoval = true)
      CompletableFuture<ItemStack> getSkullAsynchronously();
      // Leaf end - KeYi - Player Skull API
