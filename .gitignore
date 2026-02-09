@@ -31,3 +31,6 @@ paper-server
 
 # vscode
 .vscode
+
+# logs
+*.log
