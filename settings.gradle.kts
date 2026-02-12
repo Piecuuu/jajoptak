@@ -12,24 +12,21 @@ plugins {
 }
 
 if (!file(".git").exists()) {
-    // Leaf start - project setup
+    // Leaf start - project setup // piecuu start - Rebrand
     val errorText = """
         
         =====================[ ERROR ]=====================
-         The Leaf project directory is not a properly cloned Git repository.
+         The jajoptak project directory is not a properly cloned Git repository.
          
-         In order to build Leaf from source you must clone
-         the Leaf repository using Git, not download a code
+         In order to build jajoptak from source you must clone
+         the jajoptak repository using Git, not download a code
          zip from GitHub.
-         
-         Built Leaf jars are available for download at
-         https://www.leafmc.one/download
          
          See https://github.com/PaperMC/Paper/blob/main/CONTRIBUTING.md
          for further information on building and modifying Paper forks.
         ===================================================
     """.trimIndent()
-    // Leaf end - project setup
+    // Leaf end - project setup // piecuu end - Rebrand
     error(errorText)
 }
 
