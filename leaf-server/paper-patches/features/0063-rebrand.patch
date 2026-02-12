@@ -1,0 +1,184 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Piecuuu <56731916+Piecuuu@users.noreply.github.com>
+Date: Thu, 12 Feb 2026 23:17:26 +0100
+Subject: [PATCH] rebrand
+
+
+diff --git a/src/main/java/org/bukkit/craftbukkit/util/CraftMagicNumbers.java b/src/main/java/org/bukkit/craftbukkit/util/CraftMagicNumbers.java
+index fe7ba61e70592407a4a39c9387ad2606bb703650..d11104bb982e5b6c5d23c565ee6ccc93331f8a72 100644
+--- a/src/main/java/org/bukkit/craftbukkit/util/CraftMagicNumbers.java
++++ b/src/main/java/org/bukkit/craftbukkit/util/CraftMagicNumbers.java
+@@ -1,21 +1,5 @@
+ package org.bukkit.craftbukkit.util;
+ 
+-import ca.spottedleaf.moonrise.common.PlatformHooks;
+-import com.google.common.base.Preconditions;
+-import com.google.common.collect.Multimap;
+-import com.google.common.io.Files;
+-import com.google.gson.JsonElement;
+-import com.google.gson.JsonParseException;
+-import com.google.gson.JsonParser;
+-import com.mojang.brigadier.StringReader;
+-import com.mojang.brigadier.exceptions.CommandSyntaxException;
+-import com.mojang.logging.LogUtils;
+-import com.mojang.serialization.Dynamic;
+-import com.mojang.serialization.JavaOps;
+-import com.mojang.serialization.JsonOps;
+-import io.papermc.paper.adventure.AdventureCodecs;
+-import io.papermc.paper.adventure.PaperAdventure;
+-import io.papermc.paper.registry.RegistryKey;
+ import java.io.File;
+ import java.io.IOException;
+ import java.nio.charset.StandardCharsets;
+@@ -28,40 +12,11 @@ import java.util.Map;
+ import java.util.Set;
+ import java.util.logging.Level;
+ import java.util.stream.Stream;
+-import io.papermc.paper.entity.EntitySerializationFlag;
+-import net.kyori.adventure.text.event.HoverEvent;
+-import net.minecraft.SharedConstants;
+-import net.minecraft.advancements.AdvancementHolder;
+-import net.minecraft.commands.Commands;
+-import net.minecraft.commands.arguments.item.ItemParser;
+-import net.minecraft.core.registries.BuiltInRegistries;
+-import net.minecraft.core.registries.Registries;
+-import net.minecraft.nbt.CompoundTag;
+-import net.minecraft.nbt.NbtOps;
+-import net.minecraft.nbt.NbtUtils;
+-import net.minecraft.nbt.StringTag;
+-import net.minecraft.nbt.Tag;
+-import net.minecraft.nbt.TagParser;
+-import net.minecraft.resources.Identifier;
+-import net.minecraft.resources.RegistryOps;
+-import net.minecraft.server.MinecraftServer;
+-import net.minecraft.server.level.ServerLevel;
+-import net.minecraft.util.ProblemReporter;
+-import net.minecraft.util.datafix.DataFixers;
+-import net.minecraft.util.datafix.fixes.References;
+-import net.minecraft.world.entity.player.Player;
+-import net.minecraft.world.item.Item;
+-import net.minecraft.world.item.alchemy.Potion;
+-import net.minecraft.world.level.block.Block;
+-import net.minecraft.world.level.block.state.BlockState;
+-import net.minecraft.world.level.storage.LevelResource;
+-import net.minecraft.world.level.storage.TagValueInput;
+-import net.minecraft.world.level.storage.TagValueOutput;
++
+ import org.bukkit.Bukkit;
+ import org.bukkit.Keyed;
+ import org.bukkit.Material;
+ import org.bukkit.NamespacedKey;
+-import org.bukkit.Registry;
+ import org.bukkit.UnsafeValues;
+ import org.bukkit.World;
+ import org.bukkit.advancement.Advancement;
+@@ -92,6 +47,52 @@ import org.bukkit.plugin.PluginDescriptionFile;
+ import org.bukkit.potion.PotionType;
+ import org.slf4j.Logger;
+ 
++import com.google.common.base.Preconditions;
++import com.google.common.collect.Multimap;
++import com.google.common.io.Files;
++import com.google.gson.JsonElement;
++import com.google.gson.JsonParseException;
++import com.google.gson.JsonParser;
++import com.mojang.brigadier.StringReader;
++import com.mojang.brigadier.exceptions.CommandSyntaxException;
++import com.mojang.logging.LogUtils;
++import com.mojang.serialization.Dynamic;
++import com.mojang.serialization.JavaOps;
++import com.mojang.serialization.JsonOps;
++
++import ca.spottedleaf.moonrise.common.PlatformHooks;
++import io.papermc.paper.adventure.AdventureCodecs;
++import io.papermc.paper.entity.EntitySerializationFlag;
++import io.papermc.paper.registry.RegistryKey;
++import net.kyori.adventure.text.event.HoverEvent;
++import net.minecraft.SharedConstants;
++import net.minecraft.advancements.AdvancementHolder;
++import net.minecraft.commands.Commands;
++import net.minecraft.commands.arguments.item.ItemParser;
++import net.minecraft.core.registries.BuiltInRegistries;
++import net.minecraft.core.registries.Registries;
++import net.minecraft.nbt.CompoundTag;
++import net.minecraft.nbt.NbtOps;
++import net.minecraft.nbt.NbtUtils;
++import net.minecraft.nbt.StringTag;
++import net.minecraft.nbt.Tag;
++import net.minecraft.nbt.TagParser;
++import net.minecraft.resources.Identifier;
++import net.minecraft.resources.RegistryOps;
++import net.minecraft.server.MinecraftServer;
++import net.minecraft.server.level.ServerLevel;
++import net.minecraft.util.ProblemReporter;
++import net.minecraft.util.datafix.DataFixers;
++import net.minecraft.util.datafix.fixes.References;
++import net.minecraft.world.entity.player.Player;
++import net.minecraft.world.item.Item;
++import net.minecraft.world.item.alchemy.Potion;
++import net.minecraft.world.level.block.Block;
++import net.minecraft.world.level.block.state.BlockState;
++import net.minecraft.world.level.storage.LevelResource;
++import net.minecraft.world.level.storage.TagValueInput;
++import net.minecraft.world.level.storage.TagValueOutput;
++
+ @SuppressWarnings("deprecation")
+ public final class CraftMagicNumbers implements UnsafeValues {
+ 
+@@ -487,7 +488,7 @@ public final class CraftMagicNumbers implements UnsafeValues {
+ 
+     @Override
+     public com.destroystokyo.paper.util.VersionFetcher getVersionFetcher() {
+-        return new org.dreeam.leaf.version.LeafVersionFetcher(); // Leaf - Rebrand
++        return new pl.piecuu.jajoptak.JajoVersionFetcher(); // Leaf - Rebrand // piecuu - rebrand
+     }
+ 
+     @Override
+diff --git a/src/main/java/org/spigotmc/WatchdogThread.java b/src/main/java/org/spigotmc/WatchdogThread.java
+index 958e6d5dcf6899c5ec41f15f013dcaa208378217..85e6f1ab698378cea104f858fb02fb6521d4bd28 100644
+--- a/src/main/java/org/spigotmc/WatchdogThread.java
++++ b/src/main/java/org/spigotmc/WatchdogThread.java
+@@ -80,15 +80,15 @@ public class WatchdogThread extends ca.spottedleaf.moonrise.common.util.TickThre
+                     We do not want people to report thread issues to Paper,
+                     but we do want people to report thread issues to Gale.
+                     */
+-                    logger.log(Level.SEVERE, "The server has stopped responding! This is (probably) not a Paper bug. This could be a Leaf bug."); // Paper // Leaf - Rebrand
++                    logger.log(Level.SEVERE, "The server has stopped responding! This is (probably) not a Paper bug. This could be a jajoptak bug."); // Paper // Leaf - Rebrand // piecuu - Rebrand
+                     // Gale end - branding changes
+                     logger.log(Level.SEVERE, "If you see a plugin in the Server thread dump below, then please report it to that author");
+                     logger.log(Level.SEVERE, "\t *Especially* if it looks like HTTP or MySQL operations are occurring");
+                     logger.log(Level.SEVERE, "If you see a world save or edit, then it means you did far more than your server can handle at once");
+                     logger.log(Level.SEVERE, "\t If this is the case, consider increasing timeout-time in spigot.yml but note that this will replace the crash with LARGE lag spikes");
+-                    logger.log(Level.SEVERE, "If you are unsure or think this is a Leaf bug, please report this to https://github.com/Winds-Studio/Leaf/issues - and if you think this is a Paper bug, please report this to https://github.com/PaperMC/Paper/issues"); // Gale - branding changes // Leaf - Rebrand
++                    logger.log(Level.SEVERE, "If you are unsure or think this is a jajoptak specific bug, please report this to https://github.com/Piecuuu/jajoptak/issues - and if you think this is a Paper bug, please report this to https://github.com/PaperMC/Paper/issues"); // Gale - branding changes // Leaf - Rebrand // piecuu - Rebrand
+                     logger.log(Level.SEVERE, "Be sure to include ALL relevant console errors and Minecraft crash reports");
+-                    logger.log(Level.SEVERE, "Leaf version: " + Bukkit.getServer().getVersion()); // Gale - branding changes // Leaf - Rebrand
++                    logger.log(Level.SEVERE, "jajoptak version: " + Bukkit.getServer().getVersion()); // Gale - branding changes // Leaf - Rebrand // piecuu - Rebrand
+ 
+                     if (net.minecraft.world.level.Level.lastPhysicsProblem != null) {
+                         logger.log(Level.SEVERE, "------------------------------");
+@@ -113,13 +113,13 @@ public class WatchdogThread extends ca.spottedleaf.moonrise.common.util.TickThre
+                     We do not want people to report thread issues to Paper,
+                     but we do want people to report thread issues to Gale.
+                     */
+-                    logger.log(Level.SEVERE, "--- DO NOT REPORT THIS TO PAPER - If you think this is a Leaf bug, please report it at https://github.com/Winds-Studio/Leaf/issues - THIS IS NOT A PAPER BUG OR CRASH - " + Bukkit.getServer().getVersion() + " ---"); // Leaf - Rebrand
++                    logger.log(Level.SEVERE, "--- DO NOT REPORT THIS TO PAPER - If you think this is a jajoptak specific bug, please report it at https://github.com/Piecuuu/jajoptak/issues - THIS IS NOT A PAPER BUG OR CRASH - " + Bukkit.getServer().getVersion() + " ---"); // Leaf - Rebrand // piecuu - Rebrand
+                     // Gale end - branding changes
+                     logger.log(Level.SEVERE, "The server has not responded for " + (currentTime - lastTick) / 1000 + " seconds! Creating thread dump");
+                 }
+                 // Paper end - Different message for short timeout
+                 logger.log(Level.SEVERE, "------------------------------");
+-                logger.log(Level.SEVERE, "Server thread dump (Look for plugins here before reporting to Leaf!):"); // Paper // Gale - branding changes // Leaf - Rebrand
++                logger.log(Level.SEVERE, "Server thread dump (Look for plugins here before reporting to jajoptak!):"); // Paper // Gale - branding changes // Leaf - Rebrand // piecuu - Rebrand
+                 FeatureHooks.dumpAllChunkLoadInfo(MinecraftServer.getServer(), isLongTimeout); // Paper - log detailed tick information
+                 WatchdogThread.dumpThread(ManagementFactory.getThreadMXBean().getThreadInfo(MinecraftServer.getServer().serverThread.threadId(), Integer.MAX_VALUE), logger);
+                 logger.log(Level.SEVERE, "------------------------------");
+@@ -149,7 +149,7 @@ public class WatchdogThread extends ca.spottedleaf.moonrise.common.util.TickThre
+                     We do not want people to report thread issues to Paper,
+                     but we do want people to report thread issues to Gale.
+                     */
+-                    logger.log(Level.SEVERE, "--- DO NOT REPORT THIS TO PAPER - If you think this is a Leaf bug, please report it at https://github.com/Winds-Studio/Leaf/issues - THIS IS NOT A PAPER BUG OR CRASH ---"); // Leaf - Rebrand
++                    logger.log(Level.SEVERE, "--- DO NOT REPORT THIS TO PAPER - If you think this is a jajoptak specific bug, please report it at https://github.com/Piecuuu/jajoptak/issues - THIS IS NOT A PAPER BUG OR CRASH ---"); // Leaf - Rebrand // piecuu - Rebrand
+                     // Gale end - branding changes
+                 }
+ 
