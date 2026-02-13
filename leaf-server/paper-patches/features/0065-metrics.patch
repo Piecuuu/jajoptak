@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Piecuuu <56731916+Piecuuu@users.noreply.github.com>
+Date: Fri, 13 Feb 2026 17:36:56 +0100
+Subject: [PATCH] metrics
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/Metrics.java b/src/main/java/com/destroystokyo/paper/Metrics.java
+index 400599b597a4aa32d966b877e6f40276bd77c450..6173c3d71d0138ca7cd5cd1c3158c2f37fd30b03 100644
+--- a/src/main/java/com/destroystokyo/paper/Metrics.java
++++ b/src/main/java/com/destroystokyo/paper/Metrics.java
+@@ -603,15 +603,15 @@ public class Metrics {
+ 
+                 metrics.addCustomChart(new Metrics.SingleLineChart("players", () -> Bukkit.getOnlinePlayers().size()));
+                 metrics.addCustomChart(new Metrics.SimplePie("online_mode", () -> Bukkit.getOnlineMode() ? "online" : "offline"));
+-                final String leafVersion; // Gale - branding changes - metrics // Leaf - metrics
++                final String jajoptakVersion; // Gale - branding changes - metrics // Leaf - metrics // piecuu - metrics
+                 final String implVersion = org.bukkit.craftbukkit.Main.class.getPackage().getImplementationVersion();
+                 if (implVersion != null) {
+                     final String buildOrHash = implVersion.substring(implVersion.lastIndexOf('-') + 1);
+-                    leafVersion = "git-Leaf-%s-%s".formatted(Bukkit.getServer().getMinecraftVersion(), buildOrHash); // Gale - branding changes - metrics // Leaf - metrics
++                    jajoptakVersion = "git-jajoptak-%s-%s".formatted(Bukkit.getServer().getMinecraftVersion(), buildOrHash); // Gale - branding changes - metrics // Leaf - metrics // piecuu - metrics
+                 } else {
+-                    leafVersion = "unknown"; // Gale - branding changes - metrics // Leaf - metrics
++                    jajoptakVersion = "unknown"; // Gale - branding changes - metrics // Leaf - metrics // piecuu - metrics
+                 }
+-                metrics.addCustomChart(new Metrics.SimplePie("leaf_version", () -> leafVersion)); // Gale - branding changes - metrics // Leaf - metrics
++                metrics.addCustomChart(new Metrics.SimplePie("jajoptak_version", () -> jajoptakVersion)); // Gale - branding changes - metrics // Leaf - metrics // piecuu - metrics
+ 
+                 metrics.addCustomChart(new Metrics.DrilldownPie("java_version", () -> {
+                     Map<String, Map<String, Integer>> map = new HashMap<>(2); // Gale - metrics - reduce HashMap capacity
