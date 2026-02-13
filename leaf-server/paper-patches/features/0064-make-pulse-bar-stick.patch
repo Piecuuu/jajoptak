@@ -1,0 +1,255 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Piecuuu <56731916+Piecuuu@users.noreply.github.com>
+Date: Fri, 13 Feb 2026 17:14:07 +0100
+Subject: [PATCH] make pulse bar stick
+
+
+diff --git a/src/main/java/dev/pulsemc/command/PulseCommands.java b/src/main/java/dev/pulsemc/command/PulseCommands.java
+index f435d45cfc16ccf726614b555a27b67070483f92..ad2fa023cabdf162a0c0df759489686beef9c9c8 100644
+--- a/src/main/java/dev/pulsemc/command/PulseCommands.java
++++ b/src/main/java/dev/pulsemc/command/PulseCommands.java
+@@ -6,7 +6,7 @@ import com.mojang.brigadier.context.CommandContext;
+ import com.mojang.brigadier.suggestion.Suggestions;
+ import com.mojang.brigadier.suggestion.SuggestionsBuilder;
+ import dev.pulsemc.config.ConfigManager;
+-import dev.pulsemc.network.PulseBar;
++import dev.pulsemc.network.PulseBarTask;
+ import dev.pulsemc.network.PulseMetrics;
+ import net.kyori.adventure.text.minimessage.MiniMessage;
+ import net.minecraft.commands.CommandSourceStack;
+@@ -57,7 +57,6 @@ public class PulseCommands {
+         boolean hasIssues = ConfigManager.load();
+ 
+         PulseMetrics.reload();
+-        PulseBar.reload();
+ 
+         if (!hasIssues) {
+             sender.sendMessage(mm.deserialize("<bold><gradient:#FF005D:#FF0048>Pulse</gradient></bold> <dark_gray>| <green>Configuration reloaded successfully!"));
+@@ -75,10 +74,16 @@ public class PulseCommands {
+     }
+ 
+     private static int toggleBar(CommandContext<CommandSourceStack> ctx) {
++        CommandSender sender = ctx.getSource().getBukkitSender();
+         if (ctx.getSource().getEntity() instanceof net.minecraft.server.level.ServerPlayer nmsPlayer) {
+-            PulseBar.toggle(nmsPlayer.getBukkitEntity());
++            boolean result = PulseBarTask.instance().togglePlayer(nmsPlayer.getBukkitEntity());
++            nmsPlayer.pulseBar(result);
++
++            net.kyori.adventure.text.Component out = mm.deserialize(result ? "<bold><gradient:#FF005D:#FF0048>Pulse</gradient></bold> <dark_gray>| <grey>Metrics bar <green>enabled<grey>."
++                                                                           : "<bold><gradient:#FF005D:#FF0048>Pulse</gradient></bold> <dark_gray>| <grey>Metrics bar <red>disabled<grey>.");
++
++            sender.sendMessage(out);
+         } else {
+-            CommandSender sender = ctx.getSource().getBukkitSender();
+             sender.sendMessage(mm.deserialize("<bold><gradient:#FF005D:#FF0048>Pulse</gradient></bold> <dark_gray>| <red>Only for players!"));
+         }
+         return 1;
+diff --git a/src/main/java/dev/pulsemc/network/PulseBar.java b/src/main/java/dev/pulsemc/network/PulseBar.java
+deleted file mode 100644
+index 85e8d3135495b4f945e3ebe8a2d56064db2563f4..0000000000000000000000000000000000000000
+--- a/src/main/java/dev/pulsemc/network/PulseBar.java
++++ /dev/null
+@@ -1,97 +0,0 @@
+-package dev.pulsemc.network;
+-
+-import dev.pulsemc.config.ConfigManager;
+-import net.kyori.adventure.bossbar.BossBar;
+-import net.kyori.adventure.text.Component;
+-import net.kyori.adventure.text.minimessage.MiniMessage;
+-import org.bukkit.entity.Player;
+-
+-import java.util.HashSet;
+-import java.util.Set;
+-import java.util.UUID;
+-import java.util.concurrent.Executors;
+-import java.util.concurrent.ScheduledExecutorService;
+-import java.util.concurrent.ScheduledFuture;
+-import java.util.concurrent.TimeUnit;
+-
+-public class PulseBar {
+-    private static final MiniMessage mm = MiniMessage.miniMessage();
+-    private static final BossBar bossBar = BossBar.bossBar(
+-        Component.empty(),
+-        1.0f,
+-        BossBar.Color.GREEN,
+-        BossBar.Overlay.NOTCHED_20
+-    );
+-
+-    private static final Set<UUID> viewers = new HashSet<>();
+-    private static final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+-
+-    private static ScheduledFuture<?> currentTask;
+-
+-    public static void toggle(Player player) {
+-        if (viewers.contains(player.getUniqueId())) {
+-            viewers.remove(player.getUniqueId());
+-            player.hideBossBar(bossBar);
+-            player.sendMessage(mm.deserialize("<bold><gradient:#FF005D:#FF0048>Pulse</gradient></bold> <dark_gray>| <grey>Metrics bar <red>disabled<grey>."));
+-        } else {
+-            viewers.add(player.getUniqueId());
+-            player.showBossBar(bossBar);
+-            player.sendMessage(mm.deserialize("<bold><gradient:#FF005D:#FF0048>Pulse</gradient></bold> <dark_gray>| <grey>Metrics bar <green>enabled<grey>."));
+-        }
+-    }
+-
+-    public static void reload() {
+-        start();
+-    }
+-
+-    public static void start() {
+-        if (currentTask != null && !currentTask.isCancelled()) {
+-            currentTask.cancel(false);
+-        }
+-
+-        int interval = Math.max(1, ConfigManager.metricsUpdateInterval);
+-
+-        currentTask = scheduler.scheduleAtFixedRate(() -> {
+-            if (viewers.isEmpty()) return;
+-            try {
+-                updateBar();
+-            } catch (Exception e) {
+-                e.printStackTrace();
+-            }
+-        }, 1, interval, TimeUnit.SECONDS);
+-    }
+-
+-    private static void updateBar() {
+-        double logical = Math.max(1, PulseMetrics.ppsLogical);
+-        double efficiency = (logical - PulseMetrics.ppsPhysical) / logical;
+-
+-        if (efficiency < 0) efficiency = 0;
+-        if (efficiency > 1) efficiency = 1;
+-
+-        BossBar.Color color;
+-        if (efficiency > 0.75) color = BossBar.Color.GREEN;
+-        else if (efficiency > 0.40) color = BossBar.Color.YELLOW;
+-        else color = BossBar.Color.RED;
+-
+-        double speed = PulseMetrics.networkSpeedKbs;
+-        String speedStr;
+-        if (speed > 1024) {
+-            speedStr = String.format("%.2f MB/s", speed / 1024.0);
+-        } else {
+-            speedStr = String.format("%.1f KB/s", speed);
+-        }
+-
+-        String title = String.format(
+-            "<bold><gradient:#FF005D:#FF0048>Pulse</gradient></bold> <dark_gray>| <white>Eff: <color:%s>%d%%</color> <dark_gray>| <white>Vanilla: <aqua>%d p/s <dark_gray>| <white>Out: <aqua>%d p/s</aqua> <gray>(%s)",
+-            (efficiency > 0.75 ? "#55FF55" : (efficiency > 0.4 ? "#FFFF55" : "#FF5555")),
+-            (int)(efficiency * 100),
+-            (int) PulseMetrics.ppsLogical,
+-            (int) PulseMetrics.ppsPhysical,
+-            speedStr
+-        );
+-
+-        bossBar.name(mm.deserialize(title));
+-        bossBar.progress((float) efficiency);
+-        bossBar.color(color);
+-    }
+-}
+diff --git a/src/main/java/dev/pulsemc/network/PulseBarTask.java b/src/main/java/dev/pulsemc/network/PulseBarTask.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..2a9fca8879c942909a1938408e2011e93ea8a358
+--- /dev/null
++++ b/src/main/java/dev/pulsemc/network/PulseBarTask.java
+@@ -0,0 +1,100 @@
++package dev.pulsemc.network;
++
++import dev.pulsemc.config.ConfigManager;
++import net.kyori.adventure.bossbar.BossBar;
++import net.kyori.adventure.text.Component;
++import net.kyori.adventure.text.minimessage.MiniMessage;
++import org.bukkit.entity.Player;
++
++public class PulseBarTask extends org.purpurmc.purpur.task.BossBarTask {
++    private static PulseBarTask instance;
++    private static final MiniMessage mm = MiniMessage.miniMessage();
++
++    private int tick = 0;
++
++    private double efficiency = 0D;
++    private double speed = 0D;
++
++    public double getEfficiency() {
++        double ef = this.efficiency;
++
++        if (ef < 0) ef = 0;
++        if (ef > 1) ef = 1;
++
++        return ef;
++    }
++
++    public double getSpeed() {
++        return this.speed;
++    }
++
++    public static PulseBarTask instance() {
++        if(instance == null) {
++            instance = new PulseBarTask();
++        }
++        return instance;
++    }
++
++    @Override
++    protected BossBar createBossBar() {
++        return BossBar.bossBar(
++            Component.empty(),
++            1.0f,
++            BossBar.Color.GREEN,
++            BossBar.Overlay.NOTCHED_20
++        );
++    }
++
++    @Override
++    public void run() {
++        int interval = Math.max(1, ConfigManager.metricsUpdateInterval * 20);
++        if(++this.tick < interval) {
++            return;
++        }
++        this.tick = 0;
++
++        double logical = Math.max(1, PulseMetrics.ppsLogical);
++        double ef = (logical - PulseMetrics.ppsPhysical) / logical;
++
++        this.efficiency = ef;
++        this.speed = PulseMetrics.networkSpeedKbs;
++
++        super.run();
++    }
++
++    private BossBar.Color getBossBarColor() {
++        BossBar.Color color;
++        if (this.getEfficiency() > 0.75) color = BossBar.Color.GREEN;
++        else if (this.getEfficiency() > 0.40) color = BossBar.Color.YELLOW;
++        else color = BossBar.Color.RED;
++
++        return color;
++    }
++
++    private String getFormattedSpeedString() {
++        String speedStr;
++        if (this.speed > 1024) {
++            speedStr = String.format("%.2f MB/s", this.speed / 1024.0);
++        } else {
++            speedStr = String.format("%.1f KB/s", this.speed);
++        }
++
++        return speedStr;
++    }
++
++    @Override
++    protected void updateBossBar(BossBar bossBar, Player player) {
++        String title = String.format(
++            "<bold><gradient:#FF005D:#FF0048>Pulse</gradient></bold> <dark_gray>| <white>Eff: <color:%s>%d%%</color> <dark_gray>| <white>Vanilla: <aqua>%d p/s <dark_gray>| <white>Out: <aqua>%d p/s</aqua> <gray>(%s)",
++            (this.getEfficiency() > 0.75 ? "#55FF55" : (this.getEfficiency() > 0.4 ? "#FFFF55" : "#FF5555")),
++            (int)(this.getEfficiency() * 100),
++            (int) PulseMetrics.ppsLogical,
++            (int) PulseMetrics.ppsPhysical,
++            getFormattedSpeedString()
++        );
++
++        bossBar.name(mm.deserialize(title));
++        bossBar.progress((float)this.getEfficiency());
++        bossBar.color(this.getBossBarColor());
++    }
++}

@@ -1,0 +1,226 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Piecuuu <56731916+Piecuuu@users.noreply.github.com>
+Date: Fri, 13 Feb 2026 17:14:18 +0100
+Subject: [PATCH] make pulse bar stick
+
+
+diff --git a/net/minecraft/server/dedicated/DedicatedServer.java b/net/minecraft/server/dedicated/DedicatedServer.java
+index ac2dfed62cb74a64b3060cc9c68b1b6657423733..30fe901cf710c5aee97856fa0ce5c1eb6120f1db 100644
+--- a/net/minecraft/server/dedicated/DedicatedServer.java
++++ b/net/minecraft/server/dedicated/DedicatedServer.java
+@@ -381,7 +381,6 @@ public class DedicatedServer extends MinecraftServer implements ServerInterface
+         // piecuu - Pulse start - Init Config and stuff
+         dev.pulsemc.config.ConfigManager.load();
+         dev.pulsemc.network.PulseMetrics.start();
+-        dev.pulsemc.network.PulseBar.start();
+         // piecuu - Pulse end
+ 
+         // CraftBukkit start
+diff --git a/net/minecraft/server/level/ServerPlayer.java b/net/minecraft/server/level/ServerPlayer.java
+index 6ac40aad2cb197dfe3bcbb21dde977efc13eb58b..cefaf7d82e97b93a813cb01b4ed9612f810f0c93 100644
+--- a/net/minecraft/server/level/ServerPlayer.java
++++ b/net/minecraft/server/level/ServerPlayer.java
+@@ -1,5 +1,19 @@
+ package net.minecraft.server.level;
+ 
++import java.net.InetSocketAddress;
++import java.util.Collection;
++import java.util.HashSet;
++import java.util.List;
++import java.util.Optional;
++import java.util.OptionalInt;
++import java.util.Set;
++import java.util.UUID;
++import java.util.concurrent.CompletableFuture;
++import java.util.stream.Collectors;
++
++import org.jspecify.annotations.Nullable;
++import org.slf4j.Logger;
++
+ import com.google.common.cache.CacheBuilder;
+ import com.google.common.cache.CacheLoader;
+ import com.google.common.cache.LoadingCache;
+@@ -12,16 +26,7 @@ import com.mojang.serialization.Codec;
+ import com.mojang.serialization.DynamicOps;
+ import com.mojang.serialization.MapCodec;
+ import com.mojang.serialization.codecs.RecordCodecBuilder;
+-import java.net.InetSocketAddress;
+-import java.util.Collection;
+-import java.util.HashSet;
+-import java.util.List;
+-import java.util.Optional;
+-import java.util.OptionalInt;
+-import java.util.Set;
+-import java.util.UUID;
+-import java.util.concurrent.CompletableFuture;
+-import java.util.stream.Collectors;
++
+ import net.minecraft.ChatFormatting;
+ import net.minecraft.CrashReport;
+ import net.minecraft.CrashReportCategory;
+@@ -64,7 +69,6 @@ import net.minecraft.network.protocol.game.ClientboundHurtAnimationPacket;
+ import net.minecraft.network.protocol.game.ClientboundMerchantOffersPacket;
+ import net.minecraft.network.protocol.game.ClientboundMountScreenOpenPacket;
+ import net.minecraft.network.protocol.game.ClientboundOpenBookPacket;
+-import net.minecraft.network.protocol.game.ClientboundOpenScreenPacket;
+ import net.minecraft.network.protocol.game.ClientboundOpenSignEditorPacket;
+ import net.minecraft.network.protocol.game.ClientboundPlayerAbilitiesPacket;
+ import net.minecraft.network.protocol.game.ClientboundPlayerCombatEndPacket;
+@@ -98,7 +102,6 @@ import net.minecraft.stats.ServerRecipeBook;
+ import net.minecraft.stats.ServerStatsCounter;
+ import net.minecraft.stats.Stat;
+ import net.minecraft.stats.Stats;
+-import net.minecraft.tags.FluidTags;
+ import net.minecraft.util.HashOps;
+ import net.minecraft.util.Mth;
+ import net.minecraft.util.ProblemReporter;
+@@ -198,8 +201,6 @@ import net.minecraft.world.scores.ScoreHolder;
+ import net.minecraft.world.scores.Scoreboard;
+ import net.minecraft.world.scores.Team;
+ import net.minecraft.world.scores.criteria.ObjectiveCriteria;
+-import org.jspecify.annotations.Nullable;
+-import org.slf4j.Logger;
+ 
+ public class ServerPlayer extends Player implements ca.spottedleaf.moonrise.patches.chunk_system.player.ChunkSystemServerPlayer { // Paper - rewrite chunk system
+     private static final Logger LOGGER = LogUtils.getLogger();
+@@ -438,6 +439,7 @@ public class ServerPlayer extends Player implements ca.spottedleaf.moonrise.patc
+     private boolean tpsBar = false; // Purpur - Implement TPSBar
+     private boolean compassBar = false; // Purpur - Add compass command
+     private boolean ramBar = false; // Purpur - Implement rambar commands
++    private boolean pulseBar = false; // piecuu - pulse - sticking pulse bar
+     private boolean forceEnableLocatorBar = false; // piecuu - per-player locator bar
+     public boolean smoothWorldTeleport; // Slice
+ 
+@@ -518,6 +520,7 @@ public class ServerPlayer extends Player implements ca.spottedleaf.moonrise.patc
+         this.tpsBar = input.getBooleanOr("Purpur.TPSBar", false); // Purpur - Implement TPSBar
+         this.compassBar = input.getBooleanOr("Purpur.CompassBar", false); // Purpur - Add compass command
+         this.ramBar = input.getBooleanOr("Purpur.RamBar", false); // Purpur - Implement rambar command
++        this.pulseBar = input.getBooleanOr("jajoptak.pulse.bar", false); // piecuu - pulse - sticking pulse bar
+         // Paper start - Expand PlayerGameModeChangeEvent
+         this.loadGameTypes(input);
+     }
+@@ -562,6 +565,7 @@ public class ServerPlayer extends Player implements ca.spottedleaf.moonrise.patc
+         output.putBoolean("Purpur.TPSBar", this.tpsBar); // Purpur - Implement TPSBar
+         output.putBoolean("Purpur.CompassBar", this.compassBar); // Purpur - Add compass command
+         output.putBoolean("Purpur.RamBar", this.ramBar); // Purpur - Add rambar command
++        output.putBoolean("jajoptak.pulse.bar", this.pulseBar); // piecuu - pulse - sticking pulse bar
+     }
+ 
+     private void saveParentVehicle(ValueOutput output) {
+@@ -3394,4 +3398,12 @@ public class ServerPlayer extends Player implements ca.spottedleaf.moonrise.patc
+         }
+     }
+     // piecuu end - per-player locator bar
++    // piecuu start - pulse - sticking pulse bar
++    public boolean pulseBar() {
++        return this.pulseBar;
++    }
++    public void pulseBar(boolean pulseBar) {
++        this.pulseBar = pulseBar;
++    }
++    // piecuu end - pulse - sticking pulse bar
+ }
+diff --git a/org/purpurmc/purpur/task/BossBarTask.java b/org/purpurmc/purpur/task/BossBarTask.java
+index 3c3d4cd52db93b97a40321030a70ebc282c9636b..c025e64160f931fe2a11727c9344f33fddb50c53 100644
+--- a/org/purpurmc/purpur/task/BossBarTask.java
++++ b/org/purpurmc/purpur/task/BossBarTask.java
+@@ -17,9 +17,9 @@ public abstract class BossBarTask extends BukkitRunnable {
+     private final Map<UUID, BossBar> bossbars = new HashMap<>();
+     private boolean started;
+ 
+-    abstract BossBar createBossBar();
++    protected abstract BossBar createBossBar();
+ 
+-    abstract void updateBossBar(BossBar bossbar, Player player);
++    protected abstract void updateBossBar(BossBar bossbar, Player player);
+ 
+     @Override
+     public void run() {
+@@ -92,12 +92,14 @@ public abstract class BossBarTask extends BukkitRunnable {
+         RamBarTask.instance().start();
+         TPSBarTask.instance().start();
+         CompassTask.instance().start();
++        dev.pulsemc.network.PulseBarTask.instance().start();
+     }
+ 
+     public static void stopAll() {
+         RamBarTask.instance().stop();
+         TPSBarTask.instance().stop();
+         CompassTask.instance().stop();
++        dev.pulsemc.network.PulseBarTask.instance().stop();
+     }
+ 
+     public static void addToAll(ServerPlayer player) {
+@@ -111,11 +113,15 @@ public abstract class BossBarTask extends BukkitRunnable {
+         if (player.compassBar()) {
+             CompassTask.instance().addPlayer(bukkit);
+         }
++        if (player.pulseBar()) {
++            dev.pulsemc.network.PulseBarTask.instance().addPlayer(bukkit);
++        }
+     }
+ 
+     public static void removeFromAll(Player player) {
+         RamBarTask.instance().removePlayer(player);
+         TPSBarTask.instance().removePlayer(player);
+         CompassTask.instance().removePlayer(player);
++        dev.pulsemc.network.PulseBarTask.instance().removePlayer(player);
+     }
+ }
+diff --git a/org/purpurmc/purpur/task/CompassTask.java b/org/purpurmc/purpur/task/CompassTask.java
+index bece7eefc8ba8822b433835526251d2fb916c025..b0b7ae82fd3ae88bd634118c969faf53a7423fe6 100644
+--- a/org/purpurmc/purpur/task/CompassTask.java
++++ b/org/purpurmc/purpur/task/CompassTask.java
+@@ -44,12 +44,12 @@ public class CompassTask extends BossBarTask {
+     }
+ 
+     @Override
+-    BossBar createBossBar() {
++    protected BossBar createBossBar() {
+         return BossBar.bossBar(Component.text(""), PurpurConfig.commandCompassBarProgressPercent, PurpurConfig.commandCompassBarProgressColor, PurpurConfig.commandCompassBarProgressOverlay);
+     }
+ 
+     @Override
+-    void updateBossBar(BossBar bossbar, Player player) {
++    protected void updateBossBar(BossBar bossbar, Player player) {
+         float yaw = player.getLocation().getYaw();
+         int length = PurpurConfig.commandCompassBarTitle.length();
+         int pos = (int) ((normalize(yaw) * (length / 720F)) + (length / 2F));
+diff --git a/org/purpurmc/purpur/task/RamBarTask.java b/org/purpurmc/purpur/task/RamBarTask.java
+index 8e98c0ae73e2c40002a72b5d0d246ffa0c3ab38f..3f5128c85bdce3131f6a84a305b32c71afb0b36d 100644
+--- a/org/purpurmc/purpur/task/RamBarTask.java
++++ b/org/purpurmc/purpur/task/RamBarTask.java
+@@ -27,12 +27,12 @@ public class RamBarTask extends BossBarTask {
+     }
+ 
+     @Override
+-    BossBar createBossBar() {
++    protected BossBar createBossBar() {
+         return BossBar.bossBar(Component.text(""), 0.0F, instance().getBossBarColor(), PurpurConfig.commandRamBarProgressOverlay);
+     }
+ 
+     @Override
+-    void updateBossBar(BossBar bossbar, Player player) {
++    protected void updateBossBar(BossBar bossbar, Player player) {
+         bossbar.progress(getBossBarProgress());
+         bossbar.color(getBossBarColor());
+         bossbar.name(MiniMessage.miniMessage().deserialize(PurpurConfig.commandRamBarTitle,
+diff --git a/org/purpurmc/purpur/task/TPSBarTask.java b/org/purpurmc/purpur/task/TPSBarTask.java
+index b65c839e45402c618020c77fe63b89bd19cc7d96..842b4398ca1a829363f58fc02585b84b688b9d7b 100644
+--- a/org/purpurmc/purpur/task/TPSBarTask.java
++++ b/org/purpurmc/purpur/task/TPSBarTask.java
+@@ -22,12 +22,12 @@ public class TPSBarTask extends BossBarTask {
+     }
+ 
+     @Override
+-    BossBar createBossBar() {
++    protected BossBar createBossBar() {
+         return BossBar.bossBar(Component.text(""), 0.0F, instance().getBossBarColor(), PurpurConfig.commandTPSBarProgressOverlay);
+     }
+ 
+     @Override
+-    void updateBossBar(BossBar bossbar, Player player) {
++    protected void updateBossBar(BossBar bossbar, Player player) {
+         // SparklyPaper start - track world's MSPT
+         if (org.dreeam.leaf.config.modules.async.SparklyPaperParallelWorldTicking.enabled) {
+             // Get player's current world
